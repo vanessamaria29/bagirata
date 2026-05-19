@@ -1,26 +1,44 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ActivityController;
 use Illuminate\Support\Facades\Route;
 
-// 1. HALAMAN UTAMA (Landing Page)
-// Kita arahkan ke 'welcome' supaya user lihat tombol Login & Register dulu
+/*
+|--------------------------------------------------------------------------
+| Web Routes - Bagirata Project
+|--------------------------------------------------------------------------
+*/
+
+// 1. LANDING PAGE
 Route::get('/', function () {
     return view('welcome');
 });
 
-// 2. HALAMAN DASHBOARD (Protected)
-// Hanya bisa dibuka kalau sudah login (auth)
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// 2. PROTECTED ROUTES (Harus Login & Verifikasi)
+Route::middleware(['auth', 'verified'])->group(function () {
+    
+    // Dashboard Utama (PBI 09)
+    Route::get('/dashboard', [ActivityController::class, 'index'])->name('dashboard');
 
-// 3. FITUR PROFILE (Hanya bisa diakses setelah login)
+    // Menu "Lihat Semua" / Bills (PBI 02)
+    // Kita arahkan ke index() di Controller agar bisa membedakan tampilan
+    Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
+
+    // Menu Teman (PBI 03)
+    // Sementara kita arahkan ke ActivityController agar tidak error 404
+    Route::get('/friends', [ActivityController::class, 'index'])->name('friends.index');
+
+    // CRUD Sesi Kegiatan (Create, Store, Edit, Update, Destroy)
+    // Kita pakai 'except index' karena index-nya sudah dibuat manual di atas
+    Route::resource('activities', ActivityController::class)->except(['index']);
+});
+
+// 3. PROFILE MANAGEMENT (Hanya Butuh Login)
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// 4. ROUTE AUTH (Login, Register, Logout dari Breeze)
 require __DIR__.'/auth.php';
