@@ -64,10 +64,23 @@
             
             <div class="flex items-center space-x-4">
                 @auth
-                    <div class="hidden md:flex flex-col text-right">
-                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Host Active</span>
-                        <span class="text-sm font-bold text-gray-900">{{ Auth::user()->name }}</span>
+                @php
+                    $rawName = Auth::user()->name; 
+                    $cleanName = Str::before($rawName, '@'); 
+                    $displayName = ucfirst($cleanName);
+                    $initial = strtoupper(substr($displayName, 0, 1));
+                @endphp
+
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner border-2 border-white">
+                        {{ $initial }}
                     </div>
+                    
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-gray-400 font-black uppercase tracking-widest">Host Active</span>
+                        <span class="text-base font-bold text-gray-900">{{ $displayName }}</span>
+                    </div>
+                </div>
                     
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
