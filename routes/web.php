@@ -41,4 +41,19 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+use Illuminate\Support\Facades\Auth;
+
+Route::post('/logout', function () {
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect('/');
+})->name('logout');
+
+// Rute untuk menampilkan halaman test upload
+Route::get('/test-ocr', function () {
+    return view('test-ocr');
+});
+
+// Rute untuk memproses gambarnya (pakai ActivityController buatan temanmu)
+Route::post('/scan-struk', [ActivityController::class, 'scanStruk'])->name('ocr.scan');
