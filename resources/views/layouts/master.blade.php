@@ -66,8 +66,7 @@
                 @auth
                 @php
                     $rawName = Auth::user()->name; 
-                    $cleanName = Str::before($rawName, '@'); 
-                    $displayName = ucfirst($cleanName);
+                    $displayName = ucfirst($rawName);
                     $initial = strtoupper(substr($displayName, 0, 1));
                 @endphp
 
@@ -90,10 +89,25 @@
                             </svg>
                         </button>
                     </form>
-                @else
-                    <a href="{{ route('login') }}" class="text-sm font-black uppercase tracking-widest text-gray-400 hover:text-blue-600 transition-colors">Masuk</a>
-                    <a href="{{ route('register') }}" class="bg-gray-950 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-gray-200">DAFTAR</a>
-                @endauth
+               @else
+                {{-- Tombol Masuk --}}
+                <a href="{{ route('login') }}" 
+                    class="px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300
+                    {{ request()->routeIs('login') 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                        : 'text-gray-400 hover:text-gray-950 hover:bg-gray-100' }}">
+                    Masuk
+                </a>
+
+                {{-- Tombol Daftar --}}
+                <a href="{{ route('register') }}" 
+                    class="px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300
+                    {{ request()->routeIs('register') 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                        : 'text-gray-400 hover:text-gray-950 hover:bg-gray-100' }}">
+                    DAFTAR
+                </a>
+            @endauth
             </div>
         </div>
     </nav>
@@ -136,7 +150,7 @@
         </div>
     </div>
     @endif
-
+    
     <footer class="text-center py-10 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
         &copy; {{ date('Y') }} BAGIRATA PROJECT • FTC UKRIDA
     </footer>

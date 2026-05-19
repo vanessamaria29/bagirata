@@ -17,7 +17,7 @@ Route::get('/', function () {
 
 // 2. PROTECTED ROUTES (Harus Login & Verifikasi)
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
     // Dashboard Utama (PBI 09)
     Route::get('/dashboard', [ActivityController::class, 'index'])->name('dashboard');
 
@@ -41,15 +41,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-use Illuminate\Support\Facades\Auth;
-
-Route::post('/logout', function () {
-    Auth::logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-    return redirect('/');
-})->name('logout');
-
 // Rute untuk menampilkan halaman test upload
 Route::get('/test-ocr', function () {
     return view('test-ocr');
@@ -57,3 +48,6 @@ Route::get('/test-ocr', function () {
 
 // Rute untuk memproses gambarnya (pakai ActivityController buatan temanmu)
 Route::post('/scan-struk', [ActivityController::class, 'scanStruk'])->name('ocr.scan');
+
+
+require __DIR__.'/auth.php';

@@ -47,10 +47,14 @@
             <h3 class="text-lg font-black text-gray-950 uppercase tracking-tight italic border-b border-gray-100 pb-3">1. Detail Acara</h3>
             <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Nama Acara</label>
-                <input type="text" name="title" required placeholder="Misal: Makan Malam Bersama BEM" 
+                <input type="text" name="title" required placeholder="Misal: Healing Bareng" 
                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
             </div>
-
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Lokasi</label>
+                <input type="text" name="location" required placeholder="Misal: Ancol" 
+                    class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
+            </div>
             <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Tanggal</label>
                 <input type="date" name="event_date" required 
@@ -62,7 +66,7 @@
             <h3 class="text-lg font-black text-gray-950 uppercase tracking-tight italic border-b border-gray-100 pb-3">2. Anggota Patungan</h3>
             
             <div class="flex gap-3">
-                <input type="text" x-model="newFriend" @keydown.enter.prevent="addFriend()" placeholder="Ketik nama teman (ex: Williams, Solana)..." 
+                <input type="text" x-model="newFriend" @keydown.enter.prevent="addFriend()" placeholder="Ketik nama teman (ex: Williams)" 
                     class="flex-1 px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
                 <button type="button" @click="addFriend()" class="bg-gray-950 text-white px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-colors">
                     + TAMBAH
@@ -164,6 +168,11 @@
             </div>
 
             <div class="space-y-6" x-show="isOcrProcessed" x-cloak>
+                @if(session('error'))
+                    <div class="bg-red-100 text-red-700 p-4 rounded-xl mb-4">
+                        {{ session('error') }}
+                    </div>
+                @endif
                 <div class="flex justify-between items-center bg-green-50 border border-green-100 p-4 rounded-2xl">
                     <p class="text-xs font-bold text-green-700 flex items-center gap-2">
                         ✨ <span>Ekstraksi OCR Berhasil! Kamu bisa mengedit teks/harga jika ada kesalahan pembacaan.</span>

@@ -35,7 +35,7 @@ class ActivityController extends Controller
     }
 
     /**
-     * REAL-TIME OCR SCAN (Clean Version - Bebas dari Duplikat Copy-Paste)
+     * REAL-TIME OCR SCAN
      */
     public function scanStruk(Request $request)
     {
@@ -156,9 +156,20 @@ class ActivityController extends Controller
                 'description' => $descriptionFound
             ]);
 
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'System Error: ' . $e->getMessage()], 500);
-        }
+            $response = Http::withoutVerifying()->post('https://api.ocr.space/parse/image', [
+                        // parameter api...
+                    ]);
+
+                    if ($response->failed()) {
+                        throw new \Exception("Server OCR sedang sibuk, coba lagi nanti ya!");
+                    }
+
+                    // ... proses hasil scan ...
+                    
+                } catch (\Exception $e) {
+                    // Daripada error, kita kembalikan ke halaman sebelumnya dengan pesan
+                    return back()->with('error', 'Maaf, fitur scan sedang sibuk (Server OCR down). Silakan coba 1 menit lagi.');
+                }
     }
 
     /**
