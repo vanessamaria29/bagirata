@@ -9,6 +9,8 @@
     isOcrProcessed: false,
     isUploading: false,
     ocrItems: [],
+    tax: 0,
+    serviceCharge: 0,
 
     addFriend() {
         if (this.newFriend.trim() !== '') {
@@ -26,8 +28,11 @@
     removeItem(index) {
         this.ocrItems.splice(index, 1);
     },
-    getTotal() {
+    getSubtotal() {
         return this.ocrItems.reduce((sum, item) => sum + parseInt(item.price || 0), 0);
+    },
+    getGrandTotal() {
+        return this.getSubtotal() + parseInt(this.tax || 0) + parseInt(this.serviceCharge || 0);
     }
 }">
 
@@ -167,68 +172,104 @@
                 <p class="text-xs font-black text-gray-500 uppercase tracking-widest animate-pulse">Memilah menu struk...</p>
             </div>
 
-            <div class="space-y-6" x-show="isOcrProcessed" x-cloak>
-                @if(session('error'))
-                    <div class="bg-red-100 text-red-700 p-4 rounded-xl mb-4">
-                        {{ session('error') }}
+                <div class="space-y-6" x-show="isOcrProcessed" x-cloak>
+                    @if(session('error'))
+                        <div class="bg-red-100 text-red-700 p-4 rounded-xl mb-4">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+                    <div class="flex justify-between items-center bg-green-50 border border-green-100 p-4 rounded-2xl">
+                        <p class="text-xs font-bold text-green-700 flex items-center gap-2">
+                            ✨ <span>Ekstraksi OCR Berhasil! Kamu bisa mengedit teks/harga jika ada kesalahan pembacaan.</span>
+                        </p>
+                        <button type="button" @click="isOcrProcessed = false; ocrItems = []" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-red-500">Ulangi</button>
                     </div>
-                @endif
-                <div class="flex justify-between items-center bg-green-50 border border-green-100 p-4 rounded-2xl">
-                    <p class="text-xs font-bold text-green-700 flex items-center gap-2">
-                        ✨ <span>Ekstraksi OCR Berhasil! Kamu bisa mengedit teks/harga jika ada kesalahan pembacaan.</span>
-                    </p>
-                    <button type="button" @click="isOcrProcessed = false; ocrItems = []" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-red-500">Ulangi</button>
-                </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                <th class="pb-3 w-1/2">Hasil Deteksi Menu</th>
-                                <th class="pb-3 w-1/4">Harga (Rp)</th>
-                                <th class="pb-3 w-1/4">Alokasi Pemesan</th>
-                                <th class="pb-3 text-center">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-xs font-bold text-gray-900">
-                            <template x-for="(item, index) in ocrItems" :key="index">
-                                <tr class="border-b border-gray-50 group">
-                                    <td class="py-3 pr-2">
-                                        <input type="text" x-model="item.name" 
-                                            class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-black text-gray-900 uppercase focus:bg-gray-50 px-2 py-1 rounded-md outline-none">
-                                    </td>
-                                    <td class="py-3 pr-4">
-                                        <input type="number" x-model="item.price" 
-                                            class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-bold text-gray-950 italic focus:bg-gray-50 px-2 py-1 rounded-md outline-none text-left">
-                                    </td>
-                                    <td class="py-3">
-                                        <select x-model="item.friend" 
-                                            :class="item.friend !== '' && item.friend !== null ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-100 text-gray-400'"
-                                            class="w-full px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border-none outline-none transition-all cursor-pointer">
-                                            <option value="">PILIH TEMAN</option>
-                                            <template x-for="friend in friends">
-                                                <option :value="friend" x-text="friend"></option>
-                                            </template>
-                                        </select>
-                                    </td>
-                                    <td class="py-3 text-center">
-                                        <button type="button" @click="removeItem(index)" class="text-red-400 hover:text-red-600 transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </td>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    <th class="pb-3 w-1/2">Hasil Deteksi Menu</th>
+                                    <th class="pb-3 w-1/4" x-text="'Harga (' + $store.currency.symbol + ')'">Harga (Rp)</th>
+                                    <th class="pb-3 w-1/4">Alokasi Pemesan</th>
+                                    <th class="pb-3 text-center">Aksi</th>
                                 </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody class="text-xs font-bold text-gray-900">
+                                <template x-for="(item, index) in ocrItems" :key="index">
+                                    <tr class="border-b border-gray-50 group">
+                                        <td class="py-3 pr-2">
+                                            <input type="text" x-model="item.name" 
+                                                class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-black text-gray-900 uppercase focus:bg-gray-50 px-2 py-1 rounded-md outline-none">
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <input type="number" x-model="item.price" 
+                                                class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-bold text-gray-950 italic focus:bg-gray-50 px-2 py-1 rounded-md outline-none text-left">
+                                        </td>
+                                        <td class="py-3">
+                                            <select x-model="item.friend" 
+                                                :class="item.friend !== '' && item.friend !== null ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-100 text-gray-400'"
+                                                class="w-full px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border-none outline-none transition-all cursor-pointer">
+                                                <option value="">PILIH TEMAN</option>
+                                                <template x-for="friend in friends">
+                                                    <option :value="friend" x-text="friend"></option>
+                                                </template>
+                                            </select>
+                                        </td>
+                                        <td class="py-3 text-center">
+                                            <button type="button" @click="removeItem(index)" class="text-red-400 hover:text-red-600 transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
 
-                <div class="flex justify-between items-center bg-blue-600 p-6 rounded-3xl text-white mt-4 shadow-xl shadow-blue-100">
-                    <span class="text-xs font-black uppercase tracking-widest opacity-80">Total Nota Struk</span>
-                    <span class="text-2xl font-black italic" x-text="'Rp ' + getTotal().toLocaleString('id-ID')">Rp 0</span>
+                    <div class="bg-white border border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm">
+                        <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Biaya Tambahan</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Pajak (PPN)</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400" x-text="$store.currency.symbol"></span>
+                                    <input type="number" x-model="tax" name="tax" min="0" placeholder="0"
+                                        class="w-full pl-8 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Service Charge</label>
+                                <div class="relative">
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400" x-text="$store.currency.symbol"></span>
+                                    <input type="number" x-model="serviceCharge" name="service_charge" min="0" placeholder="0"
+                                        class="w-full pl-8 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-3xl p-6 space-y-3 border border-gray-100">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-xs font-black text-gray-400 uppercase tracking-widest">Subtotal Menu</span>
+                            <span class="font-bold text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format(getSubtotal())"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-xs font-black text-gray-400 uppercase tracking-widest">Pajak (PPN)</span>
+                            <span class="font-bold text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format(parseInt(tax || 0))"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-xs font-black text-gray-400 uppercase tracking-widest">Service Charge</span>
+                            <span class="font-bold text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format(parseInt(serviceCharge || 0))"></span>
+                        </div>
+                        <div class="border-t border-gray-200 pt-3 flex justify-between items-center bg-blue-600 -mx-6 -mb-6 px-6 py-5 rounded-b-3xl text-white">
+                            <span class="text-xs font-black uppercase tracking-widest opacity-80">Grand Total</span>
+                            <span class="text-2xl font-black italic" x-text="$store.currency.symbol + ' ' + $store.currency.format(getGrandTotal())">Rp 0</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
             
             <template x-for="(item, index) in ocrItems" :key="'submit-'+index">
                 <div>

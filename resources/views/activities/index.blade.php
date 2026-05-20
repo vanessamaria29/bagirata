@@ -41,7 +41,7 @@
                 
                 <div class="flex items-center gap-6">
                     <div class="text-right">
-                        <p class="font-black text-xl text-gray-950 italic tracking-tighter">Rp {{ number_format($activity->total_amount, 0, ',', '.') }}</p>
+                        <p class="font-black text-xl text-gray-950 italic tracking-tighter" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $activity->total_amount }})">Rp {{ number_format($activity->total_amount, 0, ',', '.') }}</p>
                         <span class="text-[9px] font-black {{ $activity->status == 'active' ? 'text-green-500' : 'text-gray-300' }} uppercase tracking-[0.2em] italic">
                             ● {{ $activity->status }}
                         </span>

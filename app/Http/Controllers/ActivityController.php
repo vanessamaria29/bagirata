@@ -181,16 +181,20 @@ class ActivityController extends Controller
             'title'      => 'required|string|max:255',
             'location'   => 'nullable|string|max:255',
             'event_date' => 'required|date',
-            'friends'    => 'nullable|array', 
+            'friends'    => 'nullable|array',
+            'tax'        => 'nullable|numeric|min:0',
+            'service_charge' => 'nullable|numeric|min:0',
         ]);
 
         // 1. Buat Sesi Utamanya dulu
         $activity = auth()->user()->activities()->create([
-            'title'        => $request->title,
-            'location'     => $request->location,
-            'event_date'   => $request->event_date,
-            'status'       => 'active',
-            'total_amount' => 0
+            'title'           => $request->title,
+            'location'        => $request->location,
+            'event_date'      => $request->event_date,
+            'status'          => 'active',
+            'total_amount'    => 0,
+            'tax'             => $request->tax ?? 0,
+            'service_charge'  => $request->service_charge ?? 0,
         ]);
 
         // 2. Simpan nama-nama teman yang ikut patungan ke database
@@ -205,8 +209,8 @@ class ActivityController extends Controller
         }
 
         // 3. Tangkap array items dan simpan namanya ke kolom friend_name
+        $itemsTotal = 0;
         if ($request->has('items')) {
-            $total = 0;
             foreach ($request->items as $item) {
                 if (!empty($item['name']) && !empty($item['price'])) {
                     $activity->items()->create([
@@ -214,11 +218,14 @@ class ActivityController extends Controller
                         'price'       => (int) $item['price'],
                         'friend_name' => $item['friend'] ?? null 
                     ]);
-                    $total += (int) $item['price'];
+                    $itemsTotal += (int) $item['price'];
                 }
             }
-            $activity->update(['total_amount' => $total]);
         }
+
+        $activity->update([
+            'total_amount' => $itemsTotal + (int) $request->tax + (int) $request->service_charge
+        ]);
 
         return redirect()->route('dashboard')->with('success', 'Sesi Patungan Berhasil Disimpan!');
     }
@@ -248,9 +255,17 @@ class ActivityController extends Controller
             'title'      => 'required|string|max:255',
             'location'   => 'nullable|string|max:255',
             'event_date' => 'required|date',
+            'tax'        => 'nullable|numeric|min:0',
+            'service_charge' => 'nullable|numeric|min:0',
         ]);
 
-        $activity->update($request->all());
+        $activity->update($request->only(['title', 'location', 'event_date', 'tax', 'service_charge']));
+
+        // Recalculate total_amount = sum of items + tax + service_charge
+        $itemsTotal = $activity->items()->sum('price');
+        $activity->update([
+            'total_amount' => $itemsTotal + (int) $request->tax + (int) $request->service_charge
+        ]);
 
         return redirect()->route('dashboard')->with('success', 'Sesi Berhasil Diperbarui!');
     }
