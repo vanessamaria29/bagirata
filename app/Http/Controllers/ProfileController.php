@@ -38,6 +38,20 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update the user's currency preference.
+     */
+    public function updateCurrency(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'currency' => 'required|string|in:IDR,USD,SGD',
+        ]);
+
+        $request->user()->update(['currency' => $request->currency]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse

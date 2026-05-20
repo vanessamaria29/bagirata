@@ -8,6 +8,8 @@
 
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="currency-route" content="{{ route('profile.currency') }}">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     
@@ -21,7 +23,7 @@
         body { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased text-gray-950"> 
+<body x-data class="bg-gray-50 font-sans antialiased text-gray-950" data-currency="{{ auth()->user()->currency ?? 'IDR' }}"> 
 
    @if(session('success'))
 <div x-data="{ show: true }" 
@@ -80,6 +82,14 @@
                         <span class="text-base font-bold text-gray-900">{{ $displayName }}</span>
                     </div>
                 </div>
+
+                    <select x-model="$store.currency.code"
+                            @change="$store.currency.set($store.currency.code)"
+                            class="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer">
+                        <option value="IDR">IDR (Rp)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="SGD">SGD (S$)</option>
+                    </select>
                     
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
