@@ -6,7 +6,7 @@
 <style>
     .create-session-card {
         background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
-        border-radius: 24px;
+        border-radius: 1.5rem;
         padding: 40px;
         color: white;
         box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.3);
@@ -51,7 +51,7 @@
         background-color: #ffffffdc;
         color: #4F46E5;
         border: none;
-        border-radius: 12px;
+        border-radius: 1.5rem;
         font-size: 16px;
         font-weight: 800;
         cursor: pointer;
@@ -88,18 +88,18 @@
 
 <div class="py-4 space-y-10" x-data="{ filter: 'semua' }">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="p-8 bg-white rounded-[2.5rem] shadow-xl border border-blue-50 relative overflow-hidden group">
+        <div class="p-8 bg-white rounded-[1.5rem] shadow-xl border border-blue-50 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-150 duration-700"></div>
             <p class="relative z-10 text-gray-500 font-black italic text-xs uppercase tracking-widest">Total Keluar</p>
             <h3 class="relative z-10 text-3xl font-black text-gray-900 mt-2">Rp {{ number_format($total_spent, 0, ',', '.') }}</h3>
         </div>
 
-        <div class="p-8 bg-blue-600 rounded-[2.5rem] shadow-2xl shadow-blue-200 relative overflow-hidden">
+        <div class="p-8 bg-blue-600 rounded-[1.5rem] shadow-2xl shadow-blue-200 relative overflow-hidden">
             <p class="text-blue-100 font-black italic text-xs uppercase tracking-widest">Uang Nyangkut</p>
             <h3 class="text-3xl font-black text-white mt-2">Rp {{ number_format($stuck_money, 0, ',', '.') }}</h3>
         </div>
 
-        <div class="p-8 bg-white rounded-[2.5rem] shadow-xl border border-gray-100 relative">
+        <div class="p-8 bg-white rounded-[1.5rem] shadow-xl border border-gray-100 relative">
             <p class="text-gray-500 font-black italic text-xs uppercase tracking-widest">Sesi Aktif</p>
             <h3 class="text-3xl font-black text-gray-900 mt-2">{{ $active_sessions }} Sesi</h3>
         </div>
@@ -173,7 +173,7 @@
                     </div>
                 </div>
             @empty
-                <div class="py-20 bg-gray-50 rounded-[3rem] border-4 border-dashed border-gray-200 text-center">
+                <div class="py-20 bg-gray-50 rounded-[1.5rem] border-4 border-dashed border-gray-200 text-center">
                     <p class="text-gray-400 font-black italic uppercase tracking-widest">Belum ada sesi kegiatan</p>
                 </div>
             @endforelse
