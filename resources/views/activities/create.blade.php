@@ -121,6 +121,10 @@
         // Rute disesuaikan dengan web.php milikmu
         fetch('{{ route('ocr.scan') }}', {
             method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
             body: formData
         })
         .then(res => {
