@@ -91,12 +91,12 @@
         <div class="p-8 bg-white rounded-[1.5rem] shadow-xl border border-blue-50 relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full transition-transform group-hover:scale-150 duration-700"></div>
             <p class="relative z-10 text-gray-500 font-black italic text-xs uppercase tracking-widest">Total Keluar</p>
-            <h3 class="relative z-10 text-3xl font-black text-gray-900 mt-2">Rp {{ number_format($total_spent, 0, ',', '.') }}</h3>
+            <h3 class="relative z-10 text-3xl font-black text-gray-900 mt-2" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $total_spent }})">Rp {{ number_format($total_spent, 0, ',', '.') }}</h3>
         </div>
 
         <div class="p-8 bg-blue-600 rounded-[1.5rem] shadow-2xl shadow-blue-200 relative overflow-hidden">
             <p class="text-blue-100 font-black italic text-xs uppercase tracking-widest">Uang Nyangkut</p>
-            <h3 class="text-3xl font-black text-white mt-2">Rp {{ number_format($stuck_money, 0, ',', '.') }}</h3>
+            <h3 class="text-3xl font-black text-white mt-2" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $stuck_money }})">Rp {{ number_format($stuck_money, 0, ',', '.') }}</h3>
         </div>
 
         <div class="p-8 bg-white rounded-[1.5rem] shadow-xl border border-gray-100 relative">
