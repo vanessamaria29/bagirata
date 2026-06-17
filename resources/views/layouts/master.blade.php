@@ -57,7 +57,7 @@
     @if(!Request::is('/'))
     <nav class="glass-nav sticky top-0 z-40 border-b border-gray-100 shadow-sm">
         <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="{{ url('/') }}" class="flex items-center gap-2 group">
+            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" class="flex items-center gap-2 group">
                 <div class="p-1.5 bg-blue-600 rounded-lg group-hover:rotate-12 transition-transform duration-300">
                     <img src="{{ asset('icon-bagirata.png') }}" class="w-6 h-6 invert brightness-0" alt="Logo">
                 </div>
@@ -165,6 +165,59 @@
         &copy; {{ date('Y') }} BAGIRATA PROJECT • FTC UKRIDA
     </footer>
 
+<script>
+        document.addEventListener('alpine:init', () => {
+            const currencyData = {
+                'IDR': { symbol: 'Rp', locale: 'id-ID', decimals: 0 },
+                'USD': { symbol: '$', locale: 'en-US', decimals: 2 },
+                'SGD': { symbol: 'S$', locale: 'en-SG', decimals: 2 }
+            };
+
+            // Ambil mata uang terakhir yang disimpan user dari tag body
+            const initialCode = document.body.getAttribute('data-currency') || 'IDR';
+
+            Alpine.store('currency', {
+                code: initialCode,
+                symbol: currencyData[initialCode].symbol,
+                locale: currencyData[initialCode].locale,
+                decimals: currencyData[initialCode].decimals,
+
+                // Fungsi yang dipanggil saat dropdown diubah
+                set(newCode) {
+                    this.code = newCode;
+                    this.symbol = currencyData[newCode].symbol;
+                    this.locale = currencyData[newCode].locale;
+                    this.decimals = currencyData[newCode].decimals;
+
+                    // Mengirim pilihan mata uang ke database di belakang layar (AJAX)
+                    let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    let route = document.querySelector('meta[name="currency-route"]')?.getAttribute('content');
+                    
+                    if (token && route) {
+                        fetch(route, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json', 
+                                'X-CSRF-TOKEN': token,
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ currency: newCode })
+                        }).catch(err => console.log('Gagal menyimpan preferensi mata uang.'));
+                    }
+                },
+
+                // Fungsi untuk merender angka (Yang bikin halamanmu crash sebelumnya)
+                format(value) {
+                    let num = parseFloat(value) || 0;
+                    return num.toLocaleString(this.locale, {
+                        minimumFractionDigits: this.decimals,
+                        maximumFractionDigits: this.decimals
+                    });
+                }
+            });
+        });
+    </script>
+    
     @stack('scripts')
 </body>
 </html>

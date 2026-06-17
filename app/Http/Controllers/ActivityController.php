@@ -72,6 +72,10 @@ class ActivityController extends Controller
         // 5. MULAI PARSING TEKS (Sistem Antrean / FIFO + Qty Memory)
         // ==========================================
         $amountFound = 0;
+        $taxFound = 0;
+        $serviceFound = 0;
+        $isWaitingForTax = false;
+        $isWaitingForService = false;
         $descriptionFound = null;
         $dateFound = null;
         $itemsFound = []; 
@@ -105,16 +109,18 @@ class ActivityController extends Controller
             'Total', 'Subtotal', 'Amount', 'Net', 'Jml', 'Bayar', 'Cash', 'Change', 'Kembali', 
             'Tunai', 'Debit', 'Credit', 'Visa', 'Master', 'Card', 'Tax', 'Ppn', 'Pb1', 'Service', 
             'Harga', 'Price', 'Qty', 'Item', 'Shift', 'Pos', 'No', 'Check', 'Bill', 'Order', 
-            'Table', 'Meja', 'Trans', 'Ref', 'Auth', 'Telp', 'Fax', 'Call', 'Jl.', 'Jalan', 
+            'Table', 'Meja', 'Trans', 'Ref', 'Auth', 'Telp', 'Fax', 'Call', 'Jl', 'Jalan', 
             'Thank', 'Terima', 'Kasih', 'Welcome', 'Selamat', 'Datang', 'Operator', 'Kasir', 'Cashier', 
-            'Disc', 'Diskon', 'Tanggal', 'Date', 'Waktu', 'Time', 'Jam'
+            'Disc', 'Diskon', 'Tanggal', 'Date', 'Waktu', 'Time', 'Jam', 'taxable',
+            // Tambahan Pembasmi Teks Header Struk
+            'Jakarta', 'Indonesia', 'Business', 'Hours', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'NPWP', 'Shop', 'Till', 'Op', 'Served'
         ];
 
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line)) continue;
             
-            // 1. CARI TOTAL / SUBTOTAL
+        // 1. CARI TOTAL / SUBTOTAL
             if (preg_match('/(Total|Subtotal|Amount|Tagihan|Pay|Grand)/i', $line)) {
                 if (preg_match('/([\d\.,]+)$/', $line, $matches)) {
                     $cleanNum = (int)preg_replace('/[^\d]/', '', $matches[1]);
@@ -122,8 +128,7 @@ class ActivityController extends Controller
                 } else {
                     $isWaitingForTotal = true; 
                 }
-                $pendingItems = []; 
-                $lastQty = ""; // Bersihkan memori qty
+                $lastQty = ""; 
                 continue;
             }
 
@@ -134,39 +139,95 @@ class ActivityController extends Controller
                 continue;
             }
 
-            // 2. FILTER KATA ABAIKAN
+            // 1.5. CARI SERVICE CHARGE & PAJAK (Mode Tahan Banting + Gembok)
+            if (preg_match('/(Service|Serv\.|SC)/i', $line)) {
+                if (preg_match('/([\d\.,]{4,})$/', trim($line), $matches)) {
+                    $val = (int)preg_replace('/[^\d]/', '', $matches[1]);
+                    // GEMBOK: Hanya simpan jika serviceFound masih 0 (belum ketemu)
+                    if ($val >= 500 && $serviceFound == 0) $serviceFound = $val;
+                } else {
+                    $isWaitingForService = true;
+                }
+                $lastQty = "";
+                continue;
+            }
+            if ($isWaitingForService && preg_match('/^[\d\.,\s]+$/', $line)) {
+                $val = (int)preg_replace('/[^\d]/', '', $line);
+                if ($val >= 500 && $serviceFound == 0) { $serviceFound = $val; $isWaitingForService = false; }
+                continue;
+            }
+
+            if (preg_match('/(PB1|Ppn|Tax|Pajak)/i', $line) && !preg_match('/(Rate|Amt)/i', $line)) {
+                if (preg_match('/([\d\.,]{4,})$/', trim($line), $matches)) {
+                    $val = (int)preg_replace('/[^\d]/', '', $matches[1]);
+                    // GEMBOK: Hanya simpan jika taxFound masih 0 agar tidak tertimpa 300.300
+                    if ($val >= 500 && $taxFound == 0) $taxFound = $val;
+                } else {
+                    $isWaitingForTax = true;
+                }
+                $lastQty = "";
+                continue;
+            }
+            if ($isWaitingForTax && preg_match('/^[\d\.,\s]+$/', $line)) {
+                $val = (int)preg_replace('/[^\d]/', '', $line);
+                if ($val >= 500 && $taxFound == 0) { $taxFound = $val; $isWaitingForTax = false; }
+                continue;
+            }
+
+            // Cek PPN / Tax / PB1 (Cegah kata Tax Rate / Taxable Amt)
+            if (preg_match('/(PB1|Ppn|Tax|Pajak)\b/i', $line) && !preg_match('/(Rate|Amt)/i', $line)) {
+                if (preg_match('/([\d\.,]{4,})$/', $line, $matches)) {
+                    $val = (int)preg_replace('/[^\d]/', '', $matches[1]);
+                    if ($val >= 500) $taxFound = $val;
+                } else {
+                    $isWaitingForTax = true;
+                }
+                $lastQty = "";
+                continue;
+            }
+            // Tangkap angka Pajak di baris berikutnya
+            if ($isWaitingForTax && preg_match('/^[\d\.,\s]+$/', $line)) {
+                $val = (int)preg_replace('/[^\d]/', '', $line);
+                if ($val >= 500) { $taxFound = $val; $isWaitingForTax = false; }
+                continue;
+            }
+
+            // 2. FILTER KATA ABAIKAN (Gunakan Word Boundary \b)
             $isSystemLine = false;
             foreach ($ignoredWords as $word) {
-                if (stripos($line, $word) !== false) {
+                $escapedWord = preg_quote($word, '/');
+                if (preg_match("/\b" . $escapedWord . "\b/i", $line)) {
                     $isSystemLine = true; break;
                 }
             }
 
             if ($isSystemLine) {
-                $pendingItems = []; 
                 $lastQty = ""; 
                 continue;
             }
 
-            // 3. TANGKAP QUANTITY TERPISAH
-            if (preg_match('/^(\d+\s*[xX]?)$/', $line)) {
+            // 3. TANGKAP QUANTITY TERPISAH (Hanya angka 1-99 untuk mencegah '00' masuk)
+            if (preg_match('/^([1-9]\d?\s*[xX]?)$/i', $line)) {
                 $lastQty = $line;
-                continue; // Simpan di memori
+                continue;
             }
 
             // 4. SKENARIO A: Format Angka Saja (Harga dengan toleransi typo OCR)
             if (preg_match('/^[IlO\d\.,\s]+$/i', $line)) {
-                // Koreksi otomatis jika huruf O dibaca sebagai 0, atau l/I dibaca sebagai 1
                 $cleanPrice = (int)preg_replace('/[^\d]/', '', str_ireplace(['l','O','I'], ['1','0','1'], $line));
 
-                if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && count($pendingItems) > 0) {
+                // WAJIB KELIPATAN 10: Mengusir angka aneh seperti 8888, 2017, kode pos, dll.
+                if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && $cleanPrice % 10 == 0 && count($pendingItems) > 0) {
                     $matchedName = array_shift($pendingItems); 
+                    $finalName = strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $matchedName));
                     
-                    $itemsFound[] = [
-                        'name'   => strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $matchedName)),
-                        'price'  => $cleanPrice,
-                        'friend' => ''
-                    ];
+                    if (!empty($finalName)) {
+                        $itemsFound[] = [
+                            'name'   => $finalName,
+                            'price'  => $cleanPrice,
+                            'friend' => ''
+                        ];
+                    }
                 }
             }
             // 5. SKENARIO B: Format Sebaris (Nama dan Harga gabung)
@@ -174,16 +235,16 @@ class ActivityController extends Controller
                 $rawPrice = end($itemMatches); 
                 $cleanPrice = (int)preg_replace('/[^\d]/', '', str_ireplace(['l','O','I'], ['1','0','1'], $rawPrice));
                 $itemName = trim($itemMatches[1]);
+                $finalName = strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $itemName));
 
-                if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && strlen($itemName) > 2 && !is_numeric(str_replace(' ', '', $itemName)) && strpos($line, ':') === false) {
-                    // Gabungkan dengan quantity yang tersimpan di memori (jika ada)
+                if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && $cleanPrice % 10 == 0 && preg_match('/[a-zA-Z]{2,}/', $finalName)) {
                     if (!empty($lastQty)) {
-                        $itemName = $lastQty . ' ' . $itemName;
+                        $finalName = $lastQty . ' ' . $finalName;
                         $lastQty = "";
                     }
                     
                     $itemsFound[] = [
-                        'name'   => strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $itemName)),
+                        'name'   => $finalName,
                         'price'  => $cleanPrice,
                         'friend' => ''
                     ];
@@ -193,14 +254,18 @@ class ActivityController extends Controller
             // 6. SKENARIO C: Simpan calon nama menu ke antrean
             else {
                 $isTimeOrDate = preg_match('/\d{2}:\d{2}/', $line) || preg_match('/\d{2}[\/\-]\d{2}[\/\-]\d{2,4}/', $line);
+                $isRestaurantName = ($descriptionFound && stripos($line, $descriptionFound) !== false);
                 
-                if (!$isTimeOrDate && strlen($line) > 2 && !is_numeric(str_replace(' ', '', $line))) {
-                    // Jika sebelumnya ada angka quantity yang menggantung, gabungkan sekarang!
+                // FILTER KETAT: Baris Wajib memiliki minimal 2 huruf alfabet!
+                // Ini akan langsung menendang garis putus-putus (----) atau karakter aneh (***)
+                $hasLetters = preg_match('/[a-zA-Z]{2,}/', $line);
+                
+                if (!$isTimeOrDate && strlen($line) > 2 && strlen($line) < 35 && $hasLetters && !$isRestaurantName) {
                     if (!empty($lastQty)) {
                         $line = $lastQty . ' ' . $line;
                         $lastQty = ""; 
                     }
-                    $pendingItems[] = $line; // Masukkan nama utuh ke antrean
+                    $pendingItems[] = $line; 
                 }
             }
         }
@@ -209,7 +274,9 @@ class ActivityController extends Controller
         return response()->json([
             'items'       => $itemsFound,
             'date'        => $dateFound ?? date('Y-m-d'),
-            'description' => $descriptionFound
+            'description' => $descriptionFound,
+            'tax'         => $taxFound ?? 0,       // <-- Kirim data pajak
+            'service'     => $serviceFound ?? 0    // <-- Kirim data service
         ]);
 
     } catch (\Exception $e) {
@@ -240,6 +307,7 @@ class ActivityController extends Controller
             'location'        => $request->location,
             'event_date'      => $request->event_date,
             'status'          => 'active',
+            'split_type'      => $request->split_type ?? 'proportional',
             'total_amount'    => 0,
             'tax'             => $request->tax ?? 0,
             'service_charge'  => $request->service_charge ?? 0,

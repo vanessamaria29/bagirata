@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Activity extends Model
 {
-    protected $fillable = ['title', 'location', 'event_date', 'status', 'total_amount', 'tax', 'service_charge'];
+    protected $fillable = ['title', 'location', 'event_date', 'status', 'total_amount', 'tax', 'service_charge', 'split_type'];
 
     public function members()
     {
@@ -23,44 +23,62 @@ class Activity extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function getMemberBreakdownAttribute(): array
+    public function getMemberBreakdownAttribute()
     {
+        $breakdown = [];
+        $members = $this->members; 
         $items = $this->items;
-        $members = $this->members;
-        $subtotal = $items->sum('price');
+        $totalMembers = $members->count() ?: 1; // Cegah error dibagi 0
 
-        $itemsByMember = $items->groupBy(function ($item) {
-            return $item->friend_name ?: '__unassigned__';
-        });
+        // JIKA MODE BAGI RATA (EQUAL)
+        if ($this->split_type === 'equal') {
+            $grandTotal = $this->total_amount;
+            $perPerson = $grandTotal / $totalMembers;
+            
+            // Bagi rata juga subtotal dan pajaknya biar UI nggak kelihatan 0
+            $sharedSubtotal = $items->sum('price') / $totalMembers;
+            $sharedTax = ($this->tax ?? 0) / $totalMembers;
+            $sharedSc = ($this->service_charge ?? 0) / $totalMembers;
+            
+            foreach ($members as $member) {
+                $breakdown[] = [
+                    'name'     => $member->name,
+                    'items'    => collect([]), // Item tetap kosong karena patungan bareng
+                    'subtotal' => $sharedSubtotal,
+                    'tax'      => $sharedTax,
+                    'sc'       => $sharedSc,
+                    'total'    => $perPerson
+                ];
+            }
+            return collect($breakdown);
+        }
 
-        $names = $members->pluck('name')
-            ->merge($itemsByMember->keys())
-            ->unique()
-            ->filter(function ($name) {
-                return !is_null($name) && $name !== '';
-            })
-            ->values();
+        // JIKA MODE SESUAI PESANAN (PROPORSIONAL LAMA)
+        $totalMenuSubtotal = $items->sum('price');
+        $totalTax = $this->tax ?? 0;
+        $totalSc = $this->service_charge ?? 0;
 
-        $memberData = [];
-        foreach ($names as $name) {
-            $displayName = $name === '__unassigned__' ? 'Unassigned' : $name;
-            $memberItems = $itemsByMember->get($name, collect());
-            $memberData[] = [
-                'name'     => $displayName,
+        foreach ($members as $member) {
+            $memberItems = $items->where('friend_name', $member->name);
+            $memberSubtotal = $memberItems->sum('price');
+
+            $proportion = $totalMenuSubtotal > 0 ? ($memberSubtotal / $totalMenuSubtotal) : 0;
+
+            $memberTax = $proportion * $totalTax;
+            $memberSc = $proportion * $totalSc;
+            $memberTotal = $memberSubtotal + $memberTax + $memberSc;
+
+            $breakdown[] = [
+                'name'     => $member->name,
                 'items'    => $memberItems,
-                'subtotal' => $memberItems->sum('price'),
+                'subtotal' => $memberSubtotal,
+                'tax'      => $memberTax,
+                'sc'       => $memberSc,
+                'total'    => $memberTotal
             ];
         }
 
-        // Distribute tax & SC proportionally with largest-remainder to absorb rounding
-        $breakdown = $this->distributeEvenly($memberData, 'tax', $this->tax, $subtotal);
-        $breakdown = $this->distributeEvenly($breakdown, 'sc', $this->service_charge, $subtotal);
-
-        foreach ($breakdown as $i => $m) {
-            $breakdown[$i]['total'] = $m['subtotal'] + $m['tax'] + $m['sc'];
-        }
-
-        return $breakdown;
+        return collect($breakdown);
     }
 
     private function distributeEvenly(array $members, string $key, int $total, int $subtotal): array

@@ -11,6 +11,11 @@
     ocrItems: [],
     tax: 0,
     serviceCharge: 0,
+    
+    ocrItems: [],
+    tax: 0,
+    serviceCharge: 0,
+    splitType: 'proportional', // <--- Ini tambahannya
 
     addFriend() {
         if (this.newFriend.trim() !== '') {
@@ -155,6 +160,15 @@
                 if (resBody.description) {
                     document.getElementsByName('title')[0].value = 'PATUNGAN DI ' + resBody.description.toUpperCase();
                 }
+
+                // --- SINKRONISASI PAJAK & SERVICE ---
+                if (resBody.tax) {
+                    tax = resBody.tax;
+                }
+                if (resBody.service) {
+                    serviceCharge = resBody.service;
+                }
+
             } else {
                 alert(resBody.error || 'Mesin OCR sukses membaca struk, namun format menu & harga tidak cocok.');
             }
@@ -188,6 +202,15 @@
                         </p>
                         <button type="button" @click="isOcrProcessed = false; ocrItems = []" class="text-xs font-black text-gray-400 uppercase tracking-widest hover:text-red-500">Ulangi</button>
                     </div>
+                    
+                    <div class="flex flex-col items-center gap-3 bg-gray-50 border border-gray-100 p-4 rounded-3xl mt-4">
+                        <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tipe Patungan Sesi Ini</span>
+                        <div class="flex bg-gray-200 p-1 rounded-2xl w-fit">
+                            <button type="button" @click="splitType = 'proportional'" :class="splitType === 'proportional' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-900'" class="px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Sesuai Pesanan</button>
+                            <button type="button" @click="splitType = 'equal'" :class="splitType === 'equal' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-900'" class="px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all">Sama Rata Semua</button>
+                        </div>
+                        <input type="hidden" name="split_type" :value="splitType">
+                    </div>
 
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -195,7 +218,7 @@
                                 <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                     <th class="pb-3 w-1/2">Hasil Deteksi Menu</th>
                                     <th class="pb-3 w-1/4" x-text="'Harga (' + $store.currency.symbol + ')'">Harga (Rp)</th>
-                                    <th class="pb-3 w-1/4">Alokasi Pemesan</th>
+                                    <th class="pb-3 w-1/4" x-show="splitType === 'proportional'">Alokasi Pemesan</th>
                                     <th class="pb-3 text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -210,7 +233,7 @@
                                             <input type="number" x-model="item.price" 
                                                 class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-bold text-gray-950 italic focus:bg-gray-50 px-2 py-1 rounded-md outline-none text-left">
                                         </td>
-                                        <td class="py-3">
+                                        <td class="py-3" x-show="splitType === 'proportional'">
                                             <select x-model="item.friend" 
                                                 :class="item.friend !== '' && item.friend !== null ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-100 text-gray-400'"
                                                 class="w-full px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border-none outline-none transition-all cursor-pointer">

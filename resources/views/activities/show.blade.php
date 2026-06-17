@@ -99,8 +99,13 @@
         <div class="p-8 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-center">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status Sesi</p>
             <div class="flex items-center gap-2 mt-2">
-                <span class="w-3 h-3 rounded-full {{ $activity->status == 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-300' }}"></span>
-                <span class="font-black text-xl italic uppercase tracking-tighter text-gray-900">{{ $activity->status }}</span>
+                @if($activity->status == 'active')
+                    <span class="w-3 h-3 rounded-full {{ $activity->status == 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-300' }}"></span>
+                    <span class="font-black text-2xl italic uppercase tracking-tighter text-orange-500">BELUM LUNAS</span>
+                @else
+                    <span class="w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-200"></span>
+                    <span class="font-black text-2xl italic uppercase tracking-tighter text-green-500">LUNAS</span>
+                @endif
             </div>
         </div>
     </div>
@@ -139,7 +144,13 @@
             </div>
             @else
             <div class="px-6 py-4">
-                <p class="text-xs text-gray-400 italic font-medium">Tidak ada item khusus</p>
+                <p class="text-xs text-gray-400 italic font-medium">
+                    @if($activity->split_type == 'equal')
+                        🤝 Semua pesanan digabung (Sistem Bagi Rata)
+                    @else
+                        Tidak ada pesanan khusus
+                    @endif
+                </p>
             </div>
             @endif
             <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-sm">
