@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Member;
 use App\Services\CurrencyService;
+use Carbon\Carbon;
 use Google\Cloud\Vision\V1\ImageAnnotatorClient;
+use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 
 class ActivityController extends Controller
@@ -31,7 +33,12 @@ class ActivityController extends Controller
             }
         }
 
-        return view('dashboard', compact('activities', 'total_spent', 'active_sessions', 'stuck_money'));
+        $trips = auth()->user()->trips()->with('participants')->get();
+        $standalone_activities = $activities->whereNull('trip_id');
+
+        $feed = $trips->concat($standalone_activities)->sortByDesc('created_at')->values();
+
+        return view('dashboard', compact('feed', 'total_spent', 'active_sessions', 'stuck_money'));
     }
 
     /**
@@ -39,7 +46,7 @@ class ActivityController extends Controller
      */
     public function create()
     {
-        $trips = auth()->user()->trips()->where('status', 'active')->get();
+        $trips = auth()->user()->trips()->where('status', 'active')->with('participants')->get();
 
         return view('activities.create', compact('trips'));
     }
@@ -59,8 +66,16 @@ class ActivityController extends Controller
             $fileContents = file_get_contents($file->getRealPath());
             $credentialsPath = storage_path('google-credentials.json');
 
+            $httpClient = new Client(['verify' => false]);
             $imageAnnotator = new ImageAnnotatorClient([
                 'credentials' => $credentialsPath,
+                'transportConfig' => [
+                    'rest' => [
+                        'httpHandler' => function ($request, $options = []) use ($httpClient) {
+                            return $httpClient->sendAsync($request, $options);
+                        },
+                    ],
+                ],
             ]);
 
             // Gunakan documentTextDetection untuk struk
@@ -68,260 +83,250 @@ class ActivityController extends Controller
             $texts = $response->getTextAnnotations();
 
             // Jika Google tidak menemukan teks sama sekali
-            if (empty($texts)) {
+            if (count($texts) === 0) {
                 $imageAnnotator->close();
 
                 return response()->json(['error' => 'Gambar kurang jelas atau teks tidak ditemukan.'], 422);
             }
 
-            // Ambil teks utuh dan langsung tutup koneksi
+            // Ekstrak teks penuh (elemen pertama adalah teks gabungan)
             $fullText = $texts[0]->getDescription();
+            \Log::info("=== OCR TEXT ===\n".$fullText);
+
             $imageAnnotator->close();
 
             // ==========================================
-            // 5. MULAI PARSING TEKS (Sistem Antrean / FIFO + Qty Memory)
+            // 5. MULAI PARSING TEKS (Tokenization-based)
             // ==========================================
-            $amountFound = 0;
-            $taxFound = 0;
-            $serviceFound = 0;
-            $isWaitingForTax = false;
-            $isWaitingForService = false;
-            $descriptionFound = null;
-            $dateFound = null;
-            $itemsFound = [];
-            $pendingItems = [];
-            $isWaitingForTotal = false;
-            $lastQty = ''; // Khusus menangkap angka '1' atau '2x' yang terputus baris
-
             $lines = explode("\n", $fullText);
 
-            // --- PARSING TANGGAL ---
-            if (preg_match('/(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})/', $fullText, $dateMatches)) {
-                try {
-                    $dateString = str_replace('-', '/', $dateMatches[1]);
-                    $parts = explode('/', $dateString);
-                    if (strlen($parts[2]) == 2) {
-                        $parts[2] = '20'.$parts[2];
-                    }
-                    $dateFound = $parts[2].'-'.$parts[1].'-'.$parts[0];
-                } catch (\Exception $e) {
-                }
-            }
+            $merchantName = null;
+            $dateFound = null;
+            $itemsFound = [];
 
-            // --- PARSING NAMA TOKO ---
-            foreach ($lines as $line) {
-                $cleanLine = trim(preg_replace('/[^a-zA-Z0-9\s\.,-]/', '', $line));
-                if (strlen($cleanLine) > 3 && ! preg_match('/[\d\/]{6,}/', $cleanLine) && stripos($cleanLine, 'Total') === false) {
-                    $descriptionFound = ucwords(strtolower($cleanLine));
-                    break;
-                }
-            }
+            // Regex patterns
+            // Date: DD/MM/YYYY or DD-MM-YYYY or DD MMM YY
+            $datePattern = '/(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})|(\d{1,2}\s+[a-zA-Z]{3,9}\s+\d{2,4})/i';
 
-            // --- PARSING ITEM MENU & HARGA ---
             $ignoredWords = [
                 'Total', 'Subtotal', 'Amount', 'Net', 'Jml', 'Bayar', 'Cash', 'Change', 'Kembali',
                 'Tunai', 'Debit', 'Credit', 'Visa', 'Master', 'Card', 'Tax', 'Ppn', 'Pb1', 'Service',
                 'Harga', 'Price', 'Qty', 'Item', 'Shift', 'Pos', 'No', 'Check', 'Bill', 'Order',
                 'Table', 'Meja', 'Trans', 'Ref', 'Auth', 'Telp', 'Fax', 'Call', 'Jl', 'Jalan',
                 'Thank', 'Terima', 'Kasih', 'Welcome', 'Selamat', 'Datang', 'Operator', 'Kasir', 'Cashier',
-                'Disc', 'Diskon', 'Tanggal', 'Date', 'Waktu', 'Time', 'Jam', 'taxable',
-                // Tambahan Pembasmi Teks Header Struk
-                'Jakarta', 'Indonesia', 'Business', 'Hours', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'NPWP', 'Shop', 'Till', 'Op', 'Served',
+                'Disc', 'Diskon', 'Tanggal', 'Date', 'Waktu', 'Time', 'Jam', 'taxable', 'Payment', 'Pembayaran',
+                'BCA', 'Mandiri', 'BNI', 'BRI', 'Gopay', 'OVO', 'Dana', 'LinkAja', 'QRIS',
+                '小計', '合計', 'お支払い', 'カード', 'お釣り', 'レシート', '伝票番号',
             ];
 
+            $pendingName = '';
+            $pendingTax = false;
+            $pendingService = false;
+            $taxFound = 0;
+            $serviceFound = 0;
+
             foreach ($lines as $line) {
-                $line = trim($line);
-                if (empty($line)) {
+                $cleanLine = trim($line);
+                if (empty($cleanLine)) {
                     continue;
                 }
 
-                // 1. CARI TOTAL / SUBTOTAL
-                if (preg_match('/(Total|Subtotal|Amount|Tagihan|Pay|Grand)/i', $line)) {
-                    if (preg_match('/([\d\.,]+)$/', $line, $matches)) {
-                        $cleanNum = (int) preg_replace('/[^\d]/', '', $matches[1]);
-                        if ($cleanNum > $amountFound) {
-                            $amountFound = $cleanNum;
+                // --- 1. PARSING TANGGAL ---
+                if (! $dateFound && preg_match($datePattern, $cleanLine, $matches)) {
+                    $matchedDate = $matches[0];
+                    try {
+                        $dateString = str_replace('/', '-', $matchedDate);
+                        $parsedDate = Carbon::parse($dateString);
+                        $dateFound = $parsedDate->format('Y-m-d');
+                    } catch (\Exception $e) {
+                    }
+                }
+
+                // --- 2. PARSING NAMA TOKO ---
+                if (! $merchantName) {
+                    $cleanForMerchant = trim(preg_replace('/[^\p{L}]/u', '', $cleanLine));
+                    if (mb_strlen($cleanForMerchant) >= 3) {
+                        $isIgnored = false;
+                        foreach ($ignoredWords as $word) {
+                            if (stripos($cleanLine, $word) !== false) {
+                                $isIgnored = true;
+                                break;
+                            }
+                        }
+                        if (! $isIgnored) {
+                            $merchantName = $cleanLine;
+                        }
+                    }
+                }
+
+                // --- 3. PARSING BARANG & HARGA (UNIVERSAL CURRENCY PARSER) ---
+
+                // Cek jika baris ini adalah nominal pajak/service dari baris sebelumnya (multi-line OCR)
+                if ($pendingTax) {
+                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
+                        $rawPrice = $priceMatches[1];
+                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
+                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
+                        if ($isDecimalMode) {
+                            $taxFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                        } else {
+                            $taxFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
+                        }
+                    }
+                    $pendingTax = false;
+
+                    continue;
+                }
+
+                if ($pendingService) {
+                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
+                        $rawPrice = $priceMatches[1];
+                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
+                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
+                        if ($isDecimalMode) {
+                            $serviceFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                        } else {
+                            $serviceFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
+                        }
+                    }
+                    $pendingService = false;
+
+                    continue;
+                }
+
+                // --- INTERCEPTOR PAJAK & SERVICE ---
+                if (preg_match('/(tax|ppn|pb1|消費税)/i', $cleanLine)) {
+                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
+                        $rawPrice = $priceMatches[1];
+                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
+                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
+                        if ($isDecimalMode) {
+                            $taxFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                        } else {
+                            $taxFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
                         }
                     } else {
-                        $isWaitingForTotal = true;
+                        // Jika nominal pajak tidak ditemukan di baris yang sama, tangkap di baris berikutnya
+                        $pendingTax = true;
                     }
-                    $lastQty = '';
 
                     continue;
                 }
 
-                if ($isWaitingForTotal && preg_match('/^[IlO\d\.,\s]+$/i', $line)) {
-                    $cleanNum = (int) preg_replace('/[^\d]/', '', str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $line));
-                    if ($cleanNum > $amountFound) {
-                        $amountFound = $cleanNum;
-                    }
-                    $isWaitingForTotal = false;
-
-                    continue;
-                }
-
-                // 1.5. CARI SERVICE CHARGE & PAJAK (Mode Tahan Banting + Gembok)
-                if (preg_match('/(Service|Serv\.|SC)/i', $line)) {
-                    if (preg_match('/([\d\.,]{4,})$/', trim($line), $matches)) {
-                        $val = (int) preg_replace('/[^\d]/', '', $matches[1]);
-                        // GEMBOK: Hanya simpan jika serviceFound masih 0 (belum ketemu)
-                        if ($val >= 500 && $serviceFound == 0) {
-                            $serviceFound = $val;
+                if (preg_match('/(service|charge)/i', $cleanLine)) {
+                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
+                        $rawPrice = $priceMatches[1];
+                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
+                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
+                        if ($isDecimalMode) {
+                            $serviceFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                        } else {
+                            $serviceFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
                         }
                     } else {
-                        $isWaitingForService = true;
-                    }
-                    $lastQty = '';
-
-                    continue;
-                }
-                if ($isWaitingForService && preg_match('/^[\d\.,\s]+$/', $line)) {
-                    $val = (int) preg_replace('/[^\d]/', '', $line);
-                    if ($val >= 500 && $serviceFound == 0) {
-                        $serviceFound = $val;
-                        $isWaitingForService = false;
+                        $pendingService = true;
                     }
 
                     continue;
                 }
 
-                if (preg_match('/(PB1|Ppn|Tax|Pajak)/i', $line) && ! preg_match('/(Rate|Amt)/i', $line)) {
-                    if (preg_match('/([\d\.,]{4,})$/', trim($line), $matches)) {
-                        $val = (int) preg_replace('/[^\d]/', '', $matches[1]);
-                        // GEMBOK: Hanya simpan jika taxFound masih 0 agar tidak tertimpa 300.300
-                        if ($val >= 500 && $taxFound == 0) {
-                            $taxFound = $val;
-                        }
-                    } else {
-                        $isWaitingForTax = true;
-                    }
-                    $lastQty = '';
-
-                    continue;
-                }
-                if ($isWaitingForTax && preg_match('/^[\d\.,\s]+$/', $line)) {
-                    $val = (int) preg_replace('/[^\d]/', '', $line);
-                    if ($val >= 500 && $taxFound == 0) {
-                        $taxFound = $val;
-                        $isWaitingForTax = false;
-                    }
-
-                    continue;
-                }
-
-                // Cek PPN / Tax / PB1 (Cegah kata Tax Rate / Taxable Amt)
-                if (preg_match('/(PB1|Ppn|Tax|Pajak)\b/i', $line) && ! preg_match('/(Rate|Amt)/i', $line)) {
-                    if (preg_match('/([\d\.,]{4,})$/', $line, $matches)) {
-                        $val = (int) preg_replace('/[^\d]/', '', $matches[1]);
-                        if ($val >= 500) {
-                            $taxFound = $val;
-                        }
-                    } else {
-                        $isWaitingForTax = true;
-                    }
-                    $lastQty = '';
-
-                    continue;
-                }
-                // Tangkap angka Pajak di baris berikutnya
-                if ($isWaitingForTax && preg_match('/^[\d\.,\s]+$/', $line)) {
-                    $val = (int) preg_replace('/[^\d]/', '', $line);
-                    if ($val >= 500) {
-                        $taxFound = $val;
-                        $isWaitingForTax = false;
-                    }
-
-                    continue;
-                }
-
-                // 2. FILTER KATA ABAIKAN (Gunakan Word Boundary \b)
+                // Cek kata kunci sistem dulu
                 $isSystemLine = false;
                 foreach ($ignoredWords as $word) {
-                    $escapedWord = preg_quote($word, '/');
-                    if (preg_match("/\b".$escapedWord."\b/i", $line)) {
-                        $isSystemLine = true;
-                        break;
+                    // Gunakan stripos/mb_stripos untuk mencocokkan kata (terutama huruf non-latin yang sulit dengan \b)
+                    if (mb_stripos($cleanLine, $word, 0, 'UTF-8') !== false) {
+                        // Pastikan jika kata bahasa inggris, dia tidak terjepit di tengah kata lain (misal: "Tax" di dalam "Taxable")
+                        // Tapi untuk karakter Asia (Hanzi/Kanji dll), kita bisa membiarkannya cocok karena jarang tergabung dalam kata yang salah
+                        if (preg_match('/^[a-zA-Z0-9]+$/', $word)) {
+                            if (preg_match("/\b".preg_quote($word, '/')."\b/i", $cleanLine)) {
+                                $isSystemLine = true;
+                                break;
+                            }
+                        } else {
+                            $isSystemLine = true;
+                            break;
+                        }
                     }
                 }
-
                 if ($isSystemLine) {
-                    $lastQty = '';
-
                     continue;
                 }
 
-                // 3. TANGKAP QUANTITY TERPISAH (Hanya angka 1-99 untuk mencegah '00' masuk)
-                if (preg_match('/^([1-9]\d?\s*[xX]?)$/i', $line)) {
-                    $lastQty = $line;
+                // Ambil harga dari bagian kanan string terlebih dahulu
+                if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
+                    $rawPrice = $priceMatches[1];
+                    $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
 
-                    continue;
-                }
+                    // Bersihkan string harga
+                    $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
 
-                // 4. SKENARIO A: Format Angka Saja (Harga dengan toleransi typo OCR)
-                if (preg_match('/^[IlO\d\.,\s]+$/i', $line)) {
-                    $cleanPrice = (int) preg_replace('/[^\d]/', '', str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $line));
-
-                    // WAJIB KELIPATAN 10: Mengusir angka aneh seperti 8888, 2017, kode pos, dll.
-                    if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && $cleanPrice % 10 == 0 && count($pendingItems) > 0) {
-                        $matchedName = array_shift($pendingItems);
-                        $finalName = strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $matchedName));
-
-                        if (! empty($finalName)) {
-                            $itemsFound[] = [
-                                'name' => $finalName,
-                                'price' => $cleanPrice,
-                                'friend' => '',
-                            ];
-                        }
+                    if ($isDecimalMode) {
+                        $cleanPrice = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                    } else {
+                        $cleanPrice = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
                     }
-                }
-                // 5. SKENARIO B: Format Sebaris (Nama dan Harga gabung)
-                elseif (preg_match('/^(.+?)\s+([IlO\d,\.\s]+)$/i', $line, $itemMatches)) {
-                    $rawPrice = end($itemMatches);
-                    $cleanPrice = (int) preg_replace('/[^\d]/', '', str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice));
-                    $itemName = trim($itemMatches[1]);
-                    $finalName = strtoupper(preg_replace('/^[^a-zA-Z0-9]+/', '', $itemName));
 
-                    if ($cleanPrice >= 500 && $cleanPrice <= 5000000 && $cleanPrice % 10 == 0 && preg_match('/[a-zA-Z]{2,}/', $finalName)) {
-                        if (! empty($lastQty)) {
-                            $finalName = $lastQty.' '.$finalName;
-                            $lastQty = '';
-                        }
+                    if ($cleanPrice <= 0) {
+                        continue;
+                    } // Skip jika angkanya 0 atau error parsing
 
+                    // Buat sisa string nama dan qty dengan menghapus teks harga dari baris
+                    $pos = strrpos($cleanLine, $rawPrice);
+                    if ($pos !== false) {
+                        $remainingText = trim(substr($cleanLine, 0, $pos));
+                    } else {
+                        $remainingText = trim(str_replace($rawPrice, '', $cleanLine));
+                    }
+
+                    // MULTI-LINE FIX: Jika remainingText kosong (atau hanya berisi simbol mata uang), kemungkinan besar nama item ada di baris sebelumnya (OCR split)
+                    $cleanRemaining = trim(preg_replace('/(Rp|IDR|USD|SGD|JPY|S\$|\$|¥)/i', '', $remainingText));
+                    if (empty($cleanRemaining) && ! empty($pendingName)) {
+                        $remainingText = $pendingName;
+                    }
+
+                    // Ekstrak Qty dari sisi paling kiri sisa teks
+                    $qty = 1;
+                    if (preg_match('/^(\d+)\s*[xX]?\s*/', $remainingText, $qtyMatches)) {
+                        $qty = (int) $qtyMatches[1];
+                        // Potong bagian depan yang match dengan qty
+                        $remainingText = trim(substr($remainingText, strlen($qtyMatches[0])));
+                    }
+
+                    // Bersihkan sisa teks akhir untuk nama menu (Hapus simbol currency & karakter aneh)
+                    $itemName = preg_replace('/(Rp|IDR|USD|SGD|JPY|S\$|\$|¥)/i', '', $remainingText);
+                    $itemName = trim(preg_replace('/[^\p{L}0-9\s.\-]/u', '', $itemName));
+
+                    if (preg_match('/[\p{L}]/u', $itemName)) {
                         $itemsFound[] = [
-                            'name' => $finalName,
+                            'qty' => $qty,
+                            'name' => trim(mb_strtoupper($itemName, 'UTF-8')),
                             'price' => $cleanPrice,
                             'friend' => '',
                         ];
-                        $pendingItems = [];
+                        $pendingName = ''; // Reset setelah berhasil memasangkan harga dengan nama
                     }
-                }
-                // 6. SKENARIO C: Simpan calon nama menu ke antrean
-                else {
-                    $isTimeOrDate = preg_match('/\d{2}:\d{2}/', $line) || preg_match('/\d{2}[\/\-]\d{2}[\/\-]\d{2,4}/', $line);
-                    $isRestaurantName = ($descriptionFound && stripos($line, $descriptionFound) !== false);
-
-                    // FILTER KETAT: Baris Wajib memiliki minimal 2 huruf alfabet!
-                    // Ini akan langsung menendang garis putus-putus (----) atau karakter aneh (***)
-                    $hasLetters = preg_match('/[a-zA-Z]{2,}/', $line);
-
-                    if (! $isTimeOrDate && strlen($line) > 2 && strlen($line) < 35 && $hasLetters && ! $isRestaurantName) {
-                        if (! empty($lastQty)) {
-                            $line = $lastQty.' '.$line;
-                            $lastQty = '';
-                        }
-                        $pendingItems[] = $line;
+                } else {
+                    // Jika baris ini tidak ada harganya, simpan sebagai calon nama item untuk baris berikutnya
+                    // Pastikan mengandung huruf dan tidak terlalu panjang
+                    if (preg_match('/[\p{L}]/u', $cleanLine) && mb_strlen($cleanLine) < 50) {
+                        $pendingName = $cleanLine;
                     }
                 }
             }
 
-            // 6. Balikkan JSON sukses ke front-end
-            return response()->json([
+            \Log::info('=== OCR PARSED ===', [
                 'items' => $itemsFound,
+                'tax' => $taxFound,
+                'service' => $serviceFound,
+            ]);
+
+            return response()->json([
+                'merchant_name' => $merchantName ?? 'Unknown Merchant',
+                'description' => $merchantName ?? 'Unknown Merchant',
                 'date' => $dateFound ?? date('Y-m-d'),
-                'description' => $descriptionFound,
-                'tax' => $taxFound ?? 0,       // <-- Kirim data pajak
-                'service' => $serviceFound ?? 0,    // <-- Kirim data service
+                'items' => $itemsFound,
+                'tax' => $taxFound,
+                'service' => $serviceFound,
             ]);
 
         } catch (\Exception $e) {
@@ -354,8 +359,8 @@ class ActivityController extends Controller
         $taxForeign = (float) ($request->tax ?? 0);
         $scForeign = (float) ($request->service_charge ?? 0);
 
-        $taxIdr = $taxForeign * $rate;
-        $scIdr = $scForeign * $rate;
+        $taxIdr = $rate > 0 ? $taxForeign / $rate : $taxForeign;
+        $scIdr = $rate > 0 ? $scForeign / $rate : $scForeign;
 
         // 1. Buat Sesi Utamanya dulu
         $activity = auth()->user()->activities()->create([
@@ -391,7 +396,7 @@ class ActivityController extends Controller
             foreach ($request->items as $item) {
                 if (! empty($item['name']) && ! empty($item['price'])) {
                     $priceForeign = (float) $item['price'];
-                    $priceIdr = $priceForeign * $rate;
+                    $priceIdr = $rate > 0 ? $priceForeign / $rate : $priceForeign;
 
                     $activity->items()->create([
                         'name' => strtoupper($item['name']),
@@ -535,11 +540,15 @@ class ActivityController extends Controller
     {
         $service = new CurrencyService;
 
+        $usdRate = $service->getRateFromIdrTo('USD');
+        $sgdRate = $service->getRateFromIdrTo('SGD');
+        $jpyRate = $service->getRateFromIdrTo('JPY');
+
         return response()->json([
             'rates' => [
-                'USD' => $service->getRateFromIdrTo('USD'),
-                'SGD' => $service->getRateFromIdrTo('SGD'),
-                'JPY' => $service->getRateFromIdrTo('JPY'),
+                'USD' => $usdRate > 0 ? 1 / $usdRate : 1,
+                'SGD' => $sgdRate > 0 ? 1 / $sgdRate : 1,
+                'JPY' => $jpyRate > 0 ? 1 / $jpyRate : 1,
                 'IDR' => 1.0,
             ],
         ]);

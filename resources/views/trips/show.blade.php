@@ -171,46 +171,57 @@
         </a>
     </div>
 
-    <!-- Consolidated Settlement Table -->
+    <!-- Consolidated Settlement Bento Grid -->
     <div class="space-y-6">
         <h3 class="text-2xl font-black text-gray-950 tracking-tighter italic uppercase flex items-center gap-3">
             ⚖️ Ringkasan Konsolidasi Final
         </h3>
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest -mt-4">Total Tagihan Bersih per Anggota</p>
         
-        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
-            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Tagihan Bersih per Anggota</p>
-            
-            <div class="divide-y divide-gray-100">
-                @forelse($consolidated as $normalized => $data)
-                    <div class="py-4 flex items-center justify-between" id="member-row-{{ $normalized }}">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-sm uppercase shadow-sm shadow-blue-100">
+        @if(count($consolidated) > 0)
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach($consolidated as $normalized => $data)
+                    <div class="bg-white rounded-[2rem] p-6 shadow-xl shadow-blue-900/5 border border-blue-50 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300" id="member-row-{{ $normalized }}">
+                        <!-- Premium abstract shape background -->
+                        <div class="absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full opacity-60 group-hover:scale-150 transition-transform duration-700"></div>
+                        
+                        <div class="relative z-10 flex items-start justify-between mb-8">
+                            <div class="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl uppercase shadow-lg shadow-blue-200">
                                 {{ substr($data['name'], 0, 1) }}
                             </div>
-                            <div class="flex flex-col">
-                                <span class="font-black text-lg text-gray-900 uppercase tracking-tight">{{ $data['name'] }}</span>
-                                <button onclick="toggleMemberPayment('{{ addslashes($data['name']) }}')" 
-                                        id="payment-badge-{{ $normalized }}"
-                                        class="w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none border active:scale-95
-                                        {{ $data['is_fully_paid'] ? 'bg-emerald-50 text-emerald-700 border-emerald-100/60 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100/60 hover:bg-rose-100' }}">
-                                    {{ $data['is_fully_paid'] ? 'LUNAS' : 'BELUM BAYAR' }}
-                                </button>
+                            <button onclick="toggleMemberPayment('{{ addslashes($data['name']) }}')" 
+                                    id="payment-badge-{{ $normalized }}"
+                                    class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none border-2 active:scale-95 shadow-sm
+                                    {{ $data['is_fully_paid'] ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 shadow-rose-100' }}">
+                                {{ $data['is_fully_paid'] ? 'LUNAS' : 'BELUM BAYAR' }}
+                            </button>
+                        </div>
+
+                        <div class="relative z-10">
+                            <span class="font-black text-sm text-gray-400 uppercase tracking-widest">{{ $data['name'] }}</span>
+                            <div class="font-black text-2xl text-blue-600 italic mt-1 tracking-tight" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $data['total'] }})">
+                                Rp {{ number_format($data['total'], 0, ',', '.') }}
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sisa Hutang:</span>
+                                <span class="text-[11px] font-black uppercase tracking-widest" id="unpaid-info-{{ $normalized }}"
+                                      :class="{{ $data['unpaid'] }} > 0 ? 'text-rose-500' : 'text-emerald-500'">
+                                    Rp {{ number_format($data['unpaid'], 0, ',', '.') }}
+                                </span>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="font-black text-xl text-blue-600 italic block" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $data['total'] }})">
-                                Rp {{ number_format($data['total'], 0, ',', '.') }}
-                            </span>
-                            <span class="text-[9px] text-gray-400 font-bold uppercase tracking-widest" id="unpaid-info-{{ $normalized }}">
-                                Unpaid: <span class="font-black text-rose-600" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $data['unpaid'] }})">Rp {{ number_format($data['unpaid'], 0, ',', '.') }}</span>
-                            </span>
-                        </div>
                     </div>
-                @empty
-                    <p class="text-sm text-gray-400 italic text-center py-6 font-medium">Belum ada alokasi tagihan konsolidasi.</p>
-                @endforelse
+                @endforeach
             </div>
-        </div>
+        @else
+            <div class="py-12 bg-white rounded-[2rem] border border-gray-100 text-center shadow-sm">
+                <div class="w-16 h-16 bg-gray-50 rounded-2xl mx-auto flex items-center justify-center mb-4">
+                    <span class="text-2xl">💸</span>
+                </div>
+                <p class="text-gray-400 font-black italic uppercase tracking-widest text-xs">Belum ada tagihan konsolidasi.</p>
+            </div>
+        @endif
     </div>
 
     <!-- Sesi Pengeluaran Linier List -->

@@ -29,4 +29,9 @@ class Trip extends Model
     {
         return $this->hasMany(Activity::class);
     }
+
+    public function participants()
+    {
+        return $this->hasMany(TripParticipant::class);
+    }
 }

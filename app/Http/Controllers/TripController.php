@@ -24,13 +24,25 @@ class TripController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'participants' => 'nullable|array',
+            'participants.*' => 'string|max:255',
         ]);
 
-        auth()->user()->trips()->create([
+        $trip = auth()->user()->trips()->create([
             'name' => $request->name,
             'description' => $request->description,
             'status' => 'active',
         ]);
+
+        if ($request->has('participants')) {
+            foreach ($request->participants as $participantName) {
+                if (! empty(trim($participantName))) {
+                    $trip->participants()->create([
+                        'name' => trim($participantName),
+                    ]);
+                }
+            }
+        }
 
         return redirect()->route('trips.index')->with('success', 'Trip Berhasil Dibuat!');
     }
