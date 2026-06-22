@@ -60,11 +60,27 @@
                 </svg>
             </a>
 
+            @php
+                $hasPaidMembers = false;
+                $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+                $hostFullName = strtoupper(auth()->user()->name);
+
+                foreach ($activity->members as $member) {
+                    $memberName = strtoupper($member->name);
+                    if ($member->payment_status === 'paid' && $memberName !== $hostFirstName && $memberName !== $hostFullName) {
+                        $hasPaidMembers = true;
+                        break;
+                    }
+                }
+            @endphp
+
+            @if(!$hasPaidMembers)
             <button @click="openDelete = true" class="bg-red-50 text-red-500 p-3 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-95 shadow-sm shadow-red-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
             </button>
+            @endif
         </div>
     </div>
 
@@ -149,23 +165,23 @@
             <div class="space-y-3">
                 <div class="flex justify-between items-center text-sm">
                     <span class="text-xs font-bold text-gray-500">Subtotal Menu</span>
-                    <span class="font-black text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $subtotal }})">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                    <span class="font-black text-gray-700">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
                 </div>
                 @if($activity->tax > 0)
                 <div class="flex justify-between items-center text-sm">
                     <span class="text-xs font-bold text-gray-500">Pajak (PPN)</span>
-                    <span class="font-black text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $activity->tax }})">Rp {{ number_format($activity->tax, 0, ',', '.') }}</span>
+                    <span class="font-black text-gray-700">Rp {{ number_format($activity->tax, 0, ',', '.') }}</span>
                 </div>
                 @endif
                 @if($activity->service_charge > 0)
                 <div class="flex justify-between items-center text-sm">
                     <span class="text-xs font-bold text-gray-500">Service Charge</span>
-                    <span class="font-black text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $activity->service_charge }})">Rp {{ number_format($activity->service_charge, 0, ',', '.') }}</span>
+                    <span class="font-black text-gray-700">Rp {{ number_format($activity->service_charge, 0, ',', '.') }}</span>
                 </div>
                 @endif
                 <div class="border-t border-gray-200 pt-3 flex justify-between items-center">
                     <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Grand Total</span>
-                    <span class="text-xl font-black text-blue-600 italic" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $activity->total_amount }})">Rp {{ number_format($activity->total_amount, 0, ',', '.') }}</span>
+                    <span class="text-xl font-black text-blue-600 italic">Rp {{ number_format($activity->total_amount, 0, ',', '.') }}</span>
                 </div>
             </div>
         </div>
@@ -191,7 +207,7 @@
             @endphp
             <div class="mt-4 border-t border-gray-100 pt-3" x-data="{ unpaidTotal: {{ $unpaidTotalSum }} }" id="unpaid-total-container">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Sisa Utang Kelompok</p>
-                <p class="text-xl font-black text-blue-600 italic mt-1" id="unpaid-total-text" x-text="$store.currency.symbol + ' ' + $store.currency.format(unpaidTotal)">
+                <p class="text-xl font-black text-blue-600 italic mt-1" id="unpaid-total-text">
                     Rp {{ number_format($unpaidTotalSum, 0, ',', '.') }}
                 </p>
             </div>
@@ -216,16 +232,29 @@
                     <div class="flex flex-col">
                         <span class="font-black text-lg text-gray-900 uppercase tracking-tight">{{ $member['name'] }}</span>
                         @if($member['id'] !== null && $member['name'] !== 'Unassigned')
-                        <button onclick="togglePayment({{ $member['id'] }}, '{{ addslashes($member['name']) }}')" 
-                                id="payment-badge-{{ $member['id'] }}"
-                                class="w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95 border
-                                {{ $member['payment_status'] === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/60 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100/60 hover:bg-rose-100' }}">
-                            {{ $member['payment_status'] === 'paid' ? 'LUNAS' : 'BELUM BAYAR' }}
-                        </button>
+                            @php
+                                $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+                                $hostFullName = strtoupper(auth()->user()->name);
+                                $memberName = strtoupper($member['name']);
+                                $isHost = ($memberName === $hostFirstName || $memberName === $hostFullName);
+                            @endphp
+
+                            @if($isHost)
+                                <span class="w-fit mt-1 bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-slate-200 select-none shadow-sm">
+                                    HOST
+                                </span>
+                            @else
+                                <button onclick="togglePayment({{ $member['id'] }}, '{{ addslashes($member['name']) }}')" 
+                                        id="payment-badge-{{ $member['id'] }}"
+                                        class="w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95 border
+                                        {{ $member['payment_status'] === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/60 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100/60 hover:bg-rose-100' }}">
+                                    {{ $member['payment_status'] === 'paid' ? 'LUNAS' : 'BELUM BAYAR' }}
+                                </button>
+                            @endif
                         @endif
                     </div>
                 </div>
-                <span class="font-black text-xl text-blue-600 italic" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $member['total'] }})">
+                <span class="font-black text-xl text-blue-600 italic">
                     Rp {{ number_format($member['total'], 0, ',', '.') }}
                 </span>
             </div>
@@ -234,7 +263,7 @@
                 @foreach($member['items'] as $item)
                 <div class="flex justify-between items-center text-sm">
                     <span class="text-gray-700 font-bold">{{ $item->name }}</span>
-                    <span class="font-black text-gray-900" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $item->price }})">
+                    <span class="font-black text-gray-900">
                         Rp {{ number_format($item->price, 0, ',', '.') }}
                     </span>
                 </div>
@@ -363,13 +392,8 @@ function sendTogglePaymentAjax(memberId) {
 
             // Update remaining unpaid total text
             const unpaidText = document.getElementById('unpaid-total-text');
-            if (unpaidText && window.Alpine) {
-                const container = document.getElementById('unpaid-total-container');
-                if (container) {
-                    window.Alpine.$data(container).unpaidTotal = data.unpaid_total;
-                } else {
-                    unpaidText.textContent = window.Alpine.store('currency').symbol + ' ' + window.Alpine.store('currency').format(data.unpaid_total);
-                }
+            if (unpaidText) {
+                unpaidText.innerText = `Rp ${new Intl.NumberFormat('id-ID').format(data.unpaid_total).replace(/,/g, '.')}`;
             }
         }
     })

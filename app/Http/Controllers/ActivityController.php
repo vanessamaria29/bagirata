@@ -23,13 +23,32 @@ class ActivityController extends Controller
             return view('activities.index', compact('activities'));
         }
 
-        $total_spent = $activities->sum('total_amount');
         $active_sessions = $activities->where('status', 'active')->count();
 
+        $total_spent = 0;
         $stuck_money = 0;
+
+        $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+        $hostFullName = strtoupper(auth()->user()->name);
+
         foreach ($activities as $activity) {
+            // Hitung Uang Nyangkut (Stuck Money)
             if ($activity->status === 'active') {
                 $stuck_money += $activity->member_breakdown->where('payment_status', 'unpaid')->sum('total');
+            }
+
+            // Hitung Pengeluaran Murni Host (Proposional)
+            $totalItemsBill = $activity->items()->sum('price');
+            if ($totalItemsBill > 0) {
+                $hostSubtotal = $activity->items()
+                    ->whereIn(\DB::raw('UPPER(friend_name)'), [$hostFirstName, $hostFullName])
+                    ->sum('price');
+                
+                if ($hostSubtotal > 0) {
+                    $ratio = $hostSubtotal / $totalItemsBill;
+                    $hostTaxService = ($activity->tax + $activity->service_charge) * $ratio;
+                    $total_spent += ($hostSubtotal + $hostTaxService);
+                }
             }
         }
 
@@ -439,6 +458,25 @@ class ActivityController extends Controller
      */
     public function destroy(Activity $activity)
     {
+        // CEK STATUS PEMBAYARAN ANGGOTA (Kecualikan Host)
+        $hasPaidMembers = false;
+        $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+        $hostFullName = strtoupper(auth()->user()->name);
+
+        foreach ($activity->members as $member) {
+            $memberName = strtoupper($member->name);
+            if ($member->payment_status === 'paid' && $memberName !== $hostFirstName && $memberName !== $hostFullName) {
+                $hasPaidMembers = true;
+                break;
+            }
+        }
+
+        // GAGALKAN JIKA ADA YANG SUDAH BAYAR
+        if ($hasPaidMembers) {
+            return redirect()->back()->with('error', 'Sesi tidak dapat dihapus karena sudah ada anggota yang melakukan pembayaran!');
+        }
+
+        // LANJUTKAN HAPUS JIKA AMAN
         $activity->delete();
 
         return redirect()->route('dashboard')->with('success', 'Sesi Berhasil Dihapus!');

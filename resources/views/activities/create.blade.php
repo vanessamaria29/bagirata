@@ -20,6 +20,16 @@
         <div class="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-50 space-y-6">
             <h3 class="text-lg font-black text-gray-950 uppercase tracking-tight italic border-b border-gray-100 pb-3">1. Detail Acara</h3>
             <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ditalangi Oleh</label>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-medium cursor-not-allowed flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="text-slate-400 w-4 h-4 mr-2 inline-block shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                    <span>{{ auth()->user()->name }} (Anda)</span>
+                </div>
+            </div>
+
+            <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Nama Acara</label>
                 <input type="text" name="title" required placeholder="Misal: Healing Bareng" 
                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">

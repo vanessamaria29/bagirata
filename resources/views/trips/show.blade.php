@@ -132,7 +132,7 @@
             <div class="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-2xl transition-transform group-hover:scale-125 duration-700"></div>
             <div>
                 <p class="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 italic">Total Pengeluaran Trip</p>
-                <h3 class="relative z-10 text-3xl font-black italic mt-4 tracking-tighter" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $totalSpent }})">Rp {{ number_format($totalSpent, 0, ',', '.') }}</h3>
+                <h3 class="relative z-10 text-3xl font-black italic mt-4 tracking-tighter">Rp {{ number_format($totalSpent, 0, ',', '.') }}</h3>
             </div>
             <p class="relative z-10 text-[11px] text-blue-200 mt-4 font-semibold opacity-85">Akumulasi seluruh biaya ditalangi di trip ini.</p>
         </div>
@@ -181,6 +181,12 @@
         @if(count($consolidated) > 0)
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($consolidated as $normalized => $data)
+                    @php
+                        $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+                        $hostFullName = strtoupper(auth()->user()->name);
+                        $memberName = strtoupper($data['name']);
+                        $isHost = ($memberName === $hostFirstName || $memberName === $hostFullName);
+                    @endphp
                     <div class="bg-white rounded-[2rem] p-6 shadow-xl shadow-blue-900/5 border border-blue-50 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300" id="member-row-{{ $normalized }}">
                         <!-- Premium abstract shape background -->
                         <div class="absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full opacity-60 group-hover:scale-150 transition-transform duration-700"></div>
@@ -189,20 +195,28 @@
                             <div class="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl uppercase shadow-lg shadow-blue-200">
                                 {{ substr($data['name'], 0, 1) }}
                             </div>
-                            <button onclick="toggleMemberPayment('{{ addslashes($data['name']) }}')" 
-                                    id="payment-badge-{{ $normalized }}"
-                                    class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none border-2 active:scale-95 shadow-sm
-                                    {{ $data['is_fully_paid'] ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 shadow-rose-100' }}">
-                                {{ $data['is_fully_paid'] ? 'LUNAS' : 'BELUM BAYAR' }}
-                            </button>
+                            
+                            @if($isHost)
+                                <span class="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 select-none shadow-sm">
+                                    HOST
+                                </span>
+                            @else
+                                <button onclick="toggleMemberPayment('{{ addslashes($data['name']) }}')" 
+                                        id="payment-badge-{{ $normalized }}"
+                                        class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none border-2 active:scale-95 shadow-sm
+                                        {{ $data['is_fully_paid'] ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100 shadow-rose-100' }}">
+                                    {{ $data['is_fully_paid'] ? 'LUNAS' : 'BELUM BAYAR' }}
+                                </button>
+                            @endif
                         </div>
 
                         <div class="relative z-10">
                             <span class="font-black text-sm text-gray-400 uppercase tracking-widest">{{ $data['name'] }}</span>
-                            <div class="font-black text-2xl text-blue-600 italic mt-1 tracking-tight" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $data['total'] }})">
+                            <div class="font-black text-2xl text-blue-600 italic mt-1 tracking-tight">
                                 Rp {{ number_format($data['total'], 0, ',', '.') }}
                             </div>
                             
+                            @if(!$isHost)
                             <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                                 <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sisa Hutang:</span>
                                 <span class="text-[11px] font-black uppercase tracking-widest" id="unpaid-info-{{ $normalized }}"
@@ -210,6 +224,7 @@
                                     Rp {{ number_format($data['unpaid'], 0, ',', '.') }}
                                 </span>
                             </div>
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -253,7 +268,7 @@
 
                     <div class="flex items-center gap-4 relative z-20 text-right">
                         <div class="flex flex-col items-end">
-                            <span class="font-black text-xl text-blue-600 italic" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $activity->total_amount }})">
+                            <span class="font-black text-xl text-blue-600 italic">
                                 Rp {{ number_format($activity->total_amount, 0, ',', '.') }}
                             </span>
                             <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border
@@ -335,9 +350,15 @@ function sendTogglePaymentAjax(memberName) {
             }
 
             const unpaidInfo = document.getElementById(`unpaid-info-${normalized}`);
-            if (unpaidInfo && window.Alpine) {
-                const formattedUnpaid = window.Alpine.store('currency').symbol + ' ' + window.Alpine.store('currency').format(data.unpaid_total);
-                unpaidInfo.innerHTML = `Unpaid: <span class="font-black text-rose-600">${formattedUnpaid}</span>`;
+            if (unpaidInfo) {
+                unpaidInfo.innerHTML = `Rp ${new Intl.NumberFormat('id-ID').format(data.unpaid_total).replace(/,/g, '.')}`;
+                if (data.unpaid_total > 0) {
+                    unpaidInfo.classList.remove('text-emerald-500');
+                    unpaidInfo.classList.add('text-rose-500');
+                } else {
+                    unpaidInfo.classList.remove('text-rose-500');
+                    unpaidInfo.classList.add('text-emerald-500');
+                }
             }
 
             // Reload the page silently or trigger visual updates if necessary

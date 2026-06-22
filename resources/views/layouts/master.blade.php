@@ -38,7 +38,7 @@
 </head>
 <body x-data class="bg-[#f8fafc] antialiased text-[#0f172a]" data-currency="{{ auth()->user()->currency ?? 'IDR' }}"> 
 
-   @if(session('success'))
+@if(session('success'))
 <div x-data="{ show: true }" 
      x-init="setTimeout(() => show = false, 2500)" 
      x-show="show"
@@ -63,6 +63,35 @@
 
         <h2 class="text-2xl font-black text-gray-900 italic tracking-tighter uppercase mb-2">Berhasil!</h2>
         <p class="text-gray-500 font-bold text-xs tracking-widest uppercase opacity-60">{{ session('success') }}</p>
+    </div>
+</div>
+@endif
+
+@if(session('error'))
+<div x-data="{ show: true }" 
+     x-init="setTimeout(() => show = false, 3500)" 
+     x-show="show"
+     class="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none p-6">
+    
+    <div x-show="show" x-transition.opacity class="fixed inset-0 bg-gray-950/20 backdrop-blur-sm"></div>
+
+    <div x-show="show" 
+         x-transition:enter="transition ease-out duration-500"
+         x-transition:enter-start="opacity-0 scale-50 -rotate-12"
+         x-transition:enter-end="opacity-100 scale-100 rotate-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-110"
+         class="relative bg-white rounded-[3.5rem] p-12 shadow-[0_40px_100px_rgba(0,0,0,0.2)] border border-white flex flex-col items-center max-w-sm w-full text-center">
+        
+        <div class="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-red-200">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white animate-[pulse_1s_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </div>
+
+        <h2 class="text-2xl font-black text-gray-900 italic tracking-tighter uppercase mb-2">Gagal!</h2>
+        <p class="text-gray-500 font-bold text-xs tracking-widest uppercase opacity-60">{{ session('error') }}</p>
     </div>
 </div>
 @endif
@@ -102,13 +131,7 @@
                     </div>
                 </div>
 
-                    <select x-model="$store.currency.code"
-                            @change="$store.currency.set($store.currency.code)"
-                            class="px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer">
-                        <option value="IDR">IDR (Rp)</option>
-                        <option value="USD">USD ($)</option>
-                        <option value="SGD">SGD (S$)</option>
-                    </select>
+
                     
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
@@ -191,58 +214,7 @@
         &copy; {{ date('Y') }} BAGIRATA PROJECT • FTC UKRIDA
     </footer>
 
-<script>
-        document.addEventListener('alpine:init', () => {
-            const currencyData = {
-                'IDR': { symbol: 'Rp', locale: 'id-ID', decimals: 0 },
-                'USD': { symbol: '$', locale: 'en-US', decimals: 2 },
-                'SGD': { symbol: 'S$', locale: 'en-SG', decimals: 2 }
-            };
 
-            // Ambil mata uang terakhir yang disimpan user dari tag body
-            const initialCode = document.body.getAttribute('data-currency') || 'IDR';
-
-            Alpine.store('currency', {
-                code: initialCode,
-                symbol: currencyData[initialCode].symbol,
-                locale: currencyData[initialCode].locale,
-                decimals: currencyData[initialCode].decimals,
-
-                // Fungsi yang dipanggil saat dropdown diubah
-                set(newCode) {
-                    this.code = newCode;
-                    this.symbol = currencyData[newCode].symbol;
-                    this.locale = currencyData[newCode].locale;
-                    this.decimals = currencyData[newCode].decimals;
-
-                    // Mengirim pilihan mata uang ke database di belakang layar (AJAX)
-                    let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                    let route = document.querySelector('meta[name="currency-route"]')?.getAttribute('content');
-                    
-                    if (token && route) {
-                        fetch(route, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json', 
-                                'X-CSRF-TOKEN': token,
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({ currency: newCode })
-                        }).catch(err => console.log('Gagal menyimpan preferensi mata uang.'));
-                    }
-                },
-
-                // Fungsi untuk merender angka (Yang bikin halamanmu crash sebelumnya)
-                format(value) {
-                    let num = parseFloat(value) || 0;
-                    return num.toLocaleString(this.locale, {
-                        minimumFractionDigits: this.decimals,
-                        maximumFractionDigits: this.decimals
-                    });
-                }
-            });
-        });
-    </script>
     
     @stack('scripts')
 </body>

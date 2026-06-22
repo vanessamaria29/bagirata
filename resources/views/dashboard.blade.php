@@ -11,7 +11,7 @@
             <div class="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-2xl transition-transform group-hover:scale-125 duration-700"></div>
             <div>
                 <p class="relative z-10 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 italic">Uang Nyangkut (Belum Bayar)</p>
-                <h3 class="relative z-10 text-3xl font-black italic mt-4 tracking-tighter" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $stuck_money }})">Rp {{ number_format($stuck_money, 0, ',', '.') }}</h3>
+                <h3 class="relative z-10 text-3xl font-black italic mt-4 tracking-tighter">Rp {{ number_format($stuck_money, 0, ',', '.') }}</h3>
             </div>
             <p class="relative z-10 text-[11px] text-blue-200 mt-4 font-semibold opacity-85">Segera tagih teman-temanmu sebelum mereka lupa!</p>
         </div>
@@ -21,7 +21,7 @@
             <div class="absolute -right-4 -top-4 w-20 h-20 bg-slate-50 rounded-full transition-transform group-hover:scale-150 duration-700 opacity-60"></div>
             <div>
                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 italic">Total Pengeluaran</p>
-                <h3 class="text-3xl font-black text-gray-900 mt-4 tracking-tighter" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $total_spent }})">Rp {{ number_format($total_spent, 0, ',', '.') }}</h3>
+                <h3 class="text-3xl font-black text-gray-900 mt-4 tracking-tighter">Rp {{ number_format($total_spent, 0, ',', '.') }}</h3>
             </div>
             <p class="text-[11px] text-gray-400 font-semibold mt-4">Akumulasi seluruh sesi</p>
         </div>
@@ -132,7 +132,7 @@
                     
                     <div class="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto relative z-20 gap-2">
                         @if(!$isTrip)
-                            <span class="font-black text-xl text-gray-900 group-hover:text-blue-600 transition-colors italic tracking-tight" x-text="$store.currency.symbol + ' ' + $store.currency.format({{ $amountVal }})">
+                            <span class="font-black text-xl text-gray-900 group-hover:text-blue-600 transition-colors italic tracking-tight">
                                 Rp {{ number_format($amountVal, 0, ',', '.') }}
                             </span>
                         @else

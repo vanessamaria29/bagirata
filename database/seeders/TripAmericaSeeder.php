@@ -58,9 +58,11 @@ class TripAmericaSeeder extends Seeder
                 'original_amount' => 0,
             ]);
 
-            // Masukkan Anggota
+            // Masukkan Anggota (Otomatis lunaskan Host)
+            $hostFirstName = explode(' ', strtoupper($host->name))[0];
             foreach ($participants as $name) {
-                $activity->members()->create(['name' => $name, 'payment_status' => 'unpaid']);
+                $status = (strtoupper($name) === $hostFirstName) ? 'paid' : 'unpaid';
+                $activity->members()->create(['name' => $name, 'payment_status' => $status]);
             }
 
             $totalItemsForeign = 0;
