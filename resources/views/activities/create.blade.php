@@ -11,11 +11,7 @@
     ocrItems: [],
     tax: 0,
     serviceCharge: 0,
-    
-    ocrItems: [],
-    tax: 0,
-    serviceCharge: 0,
-    splitType: 'proportional', // <--- Ini tambahannya
+    splitType: 'proportional',
 
     addFriend() {
         if (this.newFriend.trim() !== '') {
@@ -27,7 +23,12 @@
         let removedFriend = this.friends[index];
         this.friends.splice(index, 1);
         this.ocrItems.forEach(item => {
-            if (item.friend === removedFriend) item.friend = '';
+            if (item.friends) {
+                item.friends = item.friends.filter(f => f !== removedFriend);
+                item.friend = item.friends.join(',');
+            } else if (item.friend === removedFriend) {
+                item.friend = '';
+            }
         });
     },
     removeItem(index) {
@@ -38,6 +39,65 @@
     },
     getGrandTotal() {
         return this.getSubtotal() + parseInt(this.tax || 0) + parseInt(this.serviceCharge || 0);
+    },
+    getLiveBreakdown() {
+        if (this.friends.length === 0) return [];
+        
+        let breakdowns = {};
+        this.friends.forEach(friend => {
+            breakdowns[friend] = {
+                name: friend,
+                subtotal: 0,
+                tax: 0,
+                serviceCharge: 0,
+                total: 0
+            };
+        });
+
+        if (this.splitType === 'equal') {
+            let totalMembers = this.friends.length;
+            let grandTotal = this.getGrandTotal();
+            let perPerson = grandTotal / totalMembers;
+            let sharedSubtotal = this.getSubtotal() / totalMembers;
+            let sharedTax = parseInt(this.tax || 0) / totalMembers;
+            let sharedSc = parseInt(this.serviceCharge || 0) / totalMembers;
+
+            return this.friends.map(friend => ({
+                name: friend,
+                subtotal: sharedSubtotal,
+                tax: sharedTax,
+                serviceCharge: sharedSc,
+                total: perPerson
+            }));
+        }
+
+        // proportional split
+        this.ocrItems.forEach(item => {
+            let checkedFriends = item.friends || [];
+            if (checkedFriends.length > 0) {
+                let share = parseInt(item.price || 0) / checkedFriends.length;
+                checkedFriends.forEach(friend => {
+                    if (breakdowns[friend]) {
+                        breakdowns[friend].subtotal += share;
+                    }
+                });
+            }
+        });
+
+        let totalAssignedSubtotal = 0;
+        this.friends.forEach(friend => {
+            totalAssignedSubtotal += breakdowns[friend].subtotal;
+        });
+
+        this.friends.forEach(friend => {
+            let b = breakdowns[friend];
+            let proportion = totalAssignedSubtotal > 0 ? (b.subtotal / totalAssignedSubtotal) : 0;
+            b.tax = proportion * parseInt(this.tax || 0);
+            b.serviceCharge = proportion * parseInt(this.serviceCharge || 0);
+            b.total = b.subtotal + b.tax + b.serviceCharge;
+        });
+
+        return this.friends.map(friend => breakdowns[friend]);
     }
 }">
 
@@ -151,7 +211,12 @@
             // SINKRONISASI JSON: Disesuaikan dengan output dari backend Bagirata
             if (resBody.items && resBody.items.length > 0) {
                 
-                ocrItems = resBody.items;
+                ocrItems = resBody.items.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    friend: item.friend || '',
+                    friends: item.friend ? item.friend.split(',').filter(Boolean) : []
+                }));
                 isOcrProcessed = true; 
                 
                 if (resBody.date) {
@@ -181,8 +246,16 @@
     class="absolute inset-0 opacity-0 cursor-pointer">
                 
                 <span class="text-4xl group-hover:scale-120 transition-transform inline-block mb-2">📸</span>
-                <p class="text-sm font-black text-gray-700 uppercase tracking-wide">Pilih atau Ambil Foto Struk</p>
-                <p class="text-[10px] text-gray-400 font-bold mt-1">Sistem Cerdas Bagirata OCR</p>
+                <p class="text-sm font-black text-gray-700 uppercase tracking-wide">Upload Struk Belanja</p>
+                <p class="text-[10px] text-gray-400 font-bold mt-1">Pilih / Ambil Foto Struk (Sistem Cerdas Bagirata OCR)</p>
+            </div>
+
+            <div class="text-center py-4" x-show="!isOcrProcessed && !isUploading">
+                <p class="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] my-3">— ATAU —</p>
+                <button type="button" @click="isOcrProcessed = true; ocrItems.push({ name: '', price: 0, friend: '', friends: [] })" 
+                    class="px-6 py-4 bg-gray-950 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-lg active:scale-95">
+                    ✍️ Input Menu Secara Manual
+                </button>
             </div>
 
             <div class="text-center py-12 bg-gray-50 rounded-[2rem] border border-gray-100" x-show="isUploading" x-cloak>
@@ -216,15 +289,15 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                    <th class="pb-3 w-1/2">Hasil Deteksi Menu</th>
-                                    <th class="pb-3 w-1/4" x-text="'Harga (' + $store.currency.symbol + ')'">Harga (Rp)</th>
-                                    <th class="pb-3 w-1/4" x-show="splitType === 'proportional'">Alokasi Pemesan</th>
-                                    <th class="pb-3 text-center">Aksi</th>
+                                    <th class="pb-3 w-2/5">Hasil Deteksi Menu</th>
+                                    <th class="pb-3 w-1/5" x-text="'Harga (' + $store.currency.symbol + ')'">Harga (Rp)</th>
+                                    <th class="pb-3 w-1/3" x-show="splitType === 'proportional'">Alokasi Pemesan</th>
+                                    <th class="pb-3 text-center w-12">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="text-xs font-bold text-gray-900">
                                 <template x-for="(item, index) in ocrItems" :key="index">
-                                    <tr class="border-b border-gray-50 group">
+                                    <tr class="border-b border-gray-55 group">
                                         <td class="py-3 pr-2">
                                             <input type="text" x-model="item.name" 
                                                 class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-black text-gray-900 uppercase focus:bg-gray-50 px-2 py-1 rounded-md outline-none">
@@ -233,15 +306,21 @@
                                             <input type="number" x-model="item.price" 
                                                 class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-bold text-gray-950 italic focus:bg-gray-50 px-2 py-1 rounded-md outline-none text-left">
                                         </td>
-                                        <td class="py-3" x-show="splitType === 'proportional'">
-                                            <select x-model="item.friend" 
-                                                :class="item.friend !== '' && item.friend !== null ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-100 text-gray-400'"
-                                                class="w-full px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border-none outline-none transition-all cursor-pointer">
-                                                <option value="">PILIH TEMAN</option>
-                                                <template x-for="friend in friends">
-                                                    <option :value="friend" x-text="friend"></option>
+                                        <td class="py-3 pr-2" x-show="splitType === 'proportional'">
+                                            <div class="flex flex-wrap gap-1.5 max-w-xs">
+                                                <template x-for="friend in friends" :key="friend">
+                                                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight cursor-pointer border transition-all active:scale-95 select-none"
+                                                           :class="item.friends && item.friends.includes(friend) ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-100' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'">
+                                                        <input type="checkbox" 
+                                                               :value="friend" 
+                                                               x-model="item.friends" 
+                                                               @change="item.friend = item.friends.join(',')"
+                                                               class="hidden">
+                                                        <span x-text="friend"></span>
+                                                    </label>
                                                 </template>
-                                            </select>
+                                                <p x-show="friends.length === 0" class="text-[9px] text-gray-400 italic">Tambahkan teman di atas</p>
+                                            </div>
                                         </td>
                                         <td class="py-3 text-center">
                                             <button type="button" @click="removeItem(index)" class="text-red-400 hover:text-red-600 transition-colors">
@@ -254,6 +333,13 @@
                                 </template>
                             </tbody>
                         </table>
+                    </div>
+
+                    <div class="flex justify-start pt-2">
+                        <button type="button" @click="ocrItems.push({ name: '', price: 0, friend: '', friends: [] })" 
+                            class="px-5 py-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2">
+                            <span>➕</span> Tambah Baris Menu
+                        </button>
                     </div>
 
                     <div class="bg-white border border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm">
@@ -294,6 +380,31 @@
                         <div class="border-t border-gray-200 pt-3 flex justify-between items-center bg-blue-600 -mx-6 -mb-6 px-6 py-5 rounded-b-3xl text-white">
                             <span class="text-xs font-black uppercase tracking-widest opacity-80">Grand Total</span>
                             <span class="text-2xl font-black italic" x-text="$store.currency.symbol + ' ' + $store.currency.format(getGrandTotal())">Rp 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Breakdown Preview -->
+                    <div class="bg-gray-50 border border-gray-100 rounded-3xl p-6 space-y-4 shadow-sm animate-fade-in" x-show="friends.length > 0" x-cloak>
+                        <h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest italic">Estimasi Pembagian Sementara</h4>
+                        <div class="space-y-3">
+                            <template x-for="member in getLiveBreakdown()" :key="member.name">
+                                <div class="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-center transition-all">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-[10px] uppercase shadow-sm">
+                                            <span x-text="member.name.charAt(0)"></span>
+                                        </div>
+                                        <span class="font-black text-xs text-gray-950 uppercase tracking-tight" x-text="member.name"></span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="font-black text-base text-blue-600 italic" x-text="$store.currency.symbol + ' ' + $store.currency.format(Math.round(member.total))"></span>
+                                        <div class="text-[8px] text-gray-400 font-bold uppercase tracking-wider mt-1">
+                                            Sub: <span x-text="$store.currency.format(Math.round(member.subtotal))"></span> | 
+                                            Pajak: <span x-text="$store.currency.format(Math.round(member.tax))"></span> | 
+                                            SC: <span x-text="$store.currency.format(Math.round(member.serviceCharge))"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>

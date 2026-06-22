@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Activity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,13 +15,13 @@ class ActivityTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->post(route('activities.store'), [
-            'title'          => 'Makan Siang',
-            'location'       => 'Ancol',
-            'event_date'     => '2026-05-20',
-            'tax'            => 11000,
+            'title' => 'Makan Siang',
+            'location' => 'Ancol',
+            'event_date' => '2026-05-20',
+            'tax' => 11000,
             'service_charge' => 5000,
-            'friends'        => ['Budi', 'Ani'],
-            'items'          => [
+            'friends' => ['Budi', 'Ani'],
+            'items' => [
                 ['name' => 'Nasi Goreng', 'price' => 50000, 'friend' => 'Budi'],
                 ['name' => 'Es Teh',      'price' => 10000, 'friend' => 'Ani'],
             ],
@@ -31,10 +30,10 @@ class ActivityTest extends TestCase
         $response->assertRedirect(route('dashboard'));
 
         $this->assertDatabaseHas('activities', [
-            'title'          => 'Makan Siang',
-            'tax'            => 11000,
+            'title' => 'Makan Siang',
+            'tax' => 11000,
             'service_charge' => 5000,
-            'total_amount'   => 76000,
+            'total_amount' => 76000,
         ]);
     }
 
@@ -43,17 +42,17 @@ class ActivityTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)->post(route('activities.store'), [
-            'title'          => 'Nobar',
-            'location'       => 'XXI',
-            'event_date'     => '2026-05-20',
-            'tax'            => 5500,
+            'title' => 'Nobar',
+            'location' => 'XXI',
+            'event_date' => '2026-05-20',
+            'tax' => 5500,
             'service_charge' => 2500,
         ]);
 
         $this->assertDatabaseHas('activities', [
-            'title'          => 'Nobar',
-            'total_amount'   => 8000,
-            'tax'            => 5500,
+            'title' => 'Nobar',
+            'total_amount' => 8000,
+            'tax' => 5500,
             'service_charge' => 2500,
         ]);
     }
@@ -63,12 +62,12 @@ class ActivityTest extends TestCase
         $user = User::factory()->create();
 
         $activity = $user->activities()->create([
-            'title'          => 'Test',
-            'location'       => 'Tempat',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 66000,
-            'tax'            => 6000,
+            'title' => 'Test',
+            'location' => 'Tempat',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 66000,
+            'tax' => 6000,
             'service_charge' => 6000,
         ]);
 
@@ -83,29 +82,29 @@ class ActivityTest extends TestCase
         $user = User::factory()->create();
 
         $activity = $user->activities()->create([
-            'title'          => 'Awal',
-            'location'       => 'Kota',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 10000,
-            'tax'            => 0,
+            'title' => 'Awal',
+            'location' => 'Kota',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 10000,
+            'tax' => 0,
             'service_charge' => 0,
         ]);
 
         $response = $this->actingAs($user)->put(route('activities.update', $activity), [
-            'title'          => 'Update',
-            'location'       => 'Luar Kota',
-            'event_date'     => '2026-05-21',
-            'tax'            => 11000,
+            'title' => 'Update',
+            'location' => 'Luar Kota',
+            'event_date' => '2026-05-21',
+            'tax' => 11000,
             'service_charge' => 5000,
         ]);
 
         $response->assertRedirect(route('dashboard'));
 
         $this->assertDatabaseHas('activities', [
-            'id'             => $activity->id,
-            'title'          => 'Update',
-            'tax'            => 11000,
+            'id' => $activity->id,
+            'title' => 'Update',
+            'tax' => 11000,
             'service_charge' => 5000,
         ]);
     }
@@ -115,12 +114,12 @@ class ActivityTest extends TestCase
         $user = User::factory()->create();
 
         $user->activities()->create([
-            'title'          => 'My Bill',
-            'location'       => 'Mall',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 50000,
-            'tax'            => 5000,
+            'title' => 'My Bill',
+            'location' => 'Mall',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 50000,
+            'tax' => 5000,
             'service_charge' => 3000,
         ]);
 
@@ -134,12 +133,12 @@ class ActivityTest extends TestCase
     {
         $user = User::factory()->create();
         $activity = $user->activities()->create([
-            'title'          => 'Makan',
-            'location'       => 'Cafe',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 174000,
-            'tax'            => 11000,
+            'title' => 'Makan',
+            'location' => 'Cafe',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 174000,
+            'tax' => 11000,
             'service_charge' => 5000,
         ]);
 
@@ -182,12 +181,12 @@ class ActivityTest extends TestCase
     {
         $user = User::factory()->create();
         $activity = $user->activities()->create([
-            'title'          => 'Nobar',
-            'location'       => 'XXI',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 55000,
-            'tax'            => 5000,
+            'title' => 'Nobar',
+            'location' => 'XXI',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 55000,
+            'tax' => 5000,
             'service_charge' => 0,
         ]);
 
@@ -214,12 +213,12 @@ class ActivityTest extends TestCase
     {
         $user = User::factory()->create();
         $activity = $user->activities()->create([
-            'title'          => 'Makan',
-            'location'       => 'Cafe',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 15000,
-            'tax'            => 0,
+            'title' => 'Makan',
+            'location' => 'Cafe',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 15000,
+            'tax' => 0,
             'service_charge' => 0,
         ]);
 
@@ -238,12 +237,12 @@ class ActivityTest extends TestCase
     {
         $user = User::factory()->create();
         $activity = $user->activities()->create([
-            'title'          => 'Kosong',
-            'location'       => 'Rumah',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 0,
-            'tax'            => 0,
+            'title' => 'Kosong',
+            'location' => 'Rumah',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 0,
+            'tax' => 0,
             'service_charge' => 0,
         ]);
 
@@ -254,12 +253,12 @@ class ActivityTest extends TestCase
     {
         $user = User::factory()->create();
         $activity = $user->activities()->create([
-            'title'          => 'Minum',
-            'location'       => 'Kafe',
-            'event_date'     => '2026-05-20',
-            'status'         => 'active',
-            'total_amount'   => 30000,
-            'tax'            => 0,
+            'title' => 'Minum',
+            'location' => 'Kafe',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 30000,
+            'tax' => 0,
             'service_charge' => 0,
         ]);
 
@@ -272,5 +271,153 @@ class ActivityTest extends TestCase
         $this->assertEquals(0, $breakdown[0]['tax']);
         $this->assertEquals(0, $breakdown[0]['sc']);
         $this->assertEquals(30000, $breakdown[0]['total']);
+    }
+
+    public function test_member_breakdown_splits_items_among_multiple_friends(): void
+    {
+        $user = User::factory()->create();
+        $activity = $user->activities()->create([
+            'title' => 'Makan Pizza',
+            'location' => 'Pizza Hut',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 84000,
+            'tax' => 10000,
+            'service_charge' => 14000,
+        ]);
+
+        $activity->members()->createMany([
+            ['name' => 'Budi'],
+            ['name' => 'Ani'],
+            ['name' => 'Citra'],
+        ]);
+
+        // Pizza is split among Budi and Ani
+        // Coke is split among Ani and Citra
+        $activity->items()->createMany([
+            ['name' => 'Pizza Large', 'price' => 50000, 'friend_name' => 'Budi, Ani'],
+            ['name' => 'Coke Pitcher', 'price' => 10000, 'friend_name' => 'Ani, Citra'],
+        ]);
+
+        $breakdown = $activity->member_breakdown;
+
+        $this->assertCount(3, $breakdown);
+
+        $budi = collect($breakdown)->firstWhere('name', 'Budi');
+        $ani = collect($breakdown)->firstWhere('name', 'Ani');
+        $citra = collect($breakdown)->firstWhere('name', 'Citra');
+
+        // Subtotals:
+        // Budi: Pizza / 2 = 25000
+        // Ani: Pizza / 2 + Coke / 2 = 25000 + 5000 = 30000
+        // Citra: Coke / 2 = 5000
+        // Total Assigned Subtotal = 60000
+        $this->assertEquals(25000, $budi['subtotal']);
+        $this->assertEquals(30000, $ani['subtotal']);
+        $this->assertEquals(5000, $citra['subtotal']);
+
+        // Proportions:
+        // Budi: 25000 / 60000 = 5/12
+        // Ani: 30000 / 60000 = 6/12 = 0.5
+        // Citra: 5000 / 60000 = 1/12
+
+        // Tax share:
+        // Budi tax: (5/12) * 10000 = 4166.67
+        // Ani tax: 0.5 * 10000 = 5000
+        // Citra tax: (1/12) * 10000 = 833.33
+        $this->assertEquals(5000, $ani['tax']);
+
+        // Check overall totals
+        $this->assertEquals(25000 + $budi['tax'] + $budi['sc'], $budi['total']);
+        $this->assertEquals(30000 + $ani['tax'] + $ani['sc'], $ani['total']);
+        $this->assertEquals(5000 + $citra['tax'] + $citra['sc'], $citra['total']);
+    }
+
+    public function test_host_can_toggle_member_payment_status(): void
+    {
+        $user = User::factory()->create();
+        $activity = $user->activities()->create([
+            'title' => 'Makan Pizza',
+            'location' => 'Pizza Hut',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 50000,
+            'tax' => 0,
+            'service_charge' => 0,
+        ]);
+
+        $budi = $activity->members()->create(['name' => 'Budi', 'payment_status' => 'unpaid']);
+        $ani = $activity->members()->create(['name' => 'Ani', 'payment_status' => 'unpaid']);
+
+        // First toggle budget for Budi
+        $response = $this->actingAs($user)->post(route('members.toggle-payment', $budi));
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'member_id' => $budi->id,
+            'payment_status' => 'paid',
+            'activity_status' => 'active',
+        ]);
+
+        $this->assertEquals('paid', $budi->fresh()->payment_status);
+        $this->assertEquals('active', $activity->fresh()->status);
+
+        // Toggle budget for Ani as well
+        $response2 = $this->actingAs($user)->post(route('members.toggle-payment', $ani));
+
+        $response2->assertOk();
+        $response2->assertJson([
+            'success' => true,
+            'member_id' => $ani->id,
+            'payment_status' => 'paid',
+            'activity_status' => 'settled', // Since everyone is paid!
+        ]);
+
+        $this->assertEquals('paid', $ani->fresh()->payment_status);
+        $this->assertEquals('settled', $activity->fresh()->status);
+
+        // Toggle budget for Ani back to unpaid
+        $response3 = $this->actingAs($user)->post(route('members.toggle-payment', $ani));
+
+        $response3->assertOk();
+        $response3->assertJson([
+            'success' => true,
+            'member_id' => $ani->id,
+            'payment_status' => 'unpaid',
+            'activity_status' => 'active', // Should revert to active!
+        ]);
+
+        $this->assertEquals('unpaid', $ani->fresh()->payment_status);
+        $this->assertEquals('active', $activity->fresh()->status);
+    }
+
+    public function test_guest_can_access_shared_bill_page(): void
+    {
+        $user = User::factory()->create();
+        $activity = $user->activities()->create([
+            'title' => 'Makan Bersama',
+            'location' => 'Resto A',
+            'event_date' => '2026-05-20',
+            'status' => 'active',
+            'total_amount' => 100000,
+            'tax' => 10000,
+            'service_charge' => 5000,
+        ]);
+
+        $budi = $activity->members()->create(['name' => 'Budi', 'payment_status' => 'unpaid']);
+        $activity->items()->create(['name' => 'Menu Utama', 'price' => 85000, 'friend_name' => 'Budi']);
+
+        // Request shared bill view as a guest (no actingAs)
+        $response = $this->get(route('activities.shared', $activity->uuid));
+
+        $response->assertOk();
+        $response->assertViewIs('activities.shared');
+        $response->assertSee('Makan Bersama');
+        $response->assertSee('Budi');
+        $response->assertSee('Menu Utama');
+        // Check that edit/delete button references are NOT present (e.g. they shouldn't be clickable or exist as buttons)
+        $response->assertDontSee(route('activities.edit', $activity->id));
+        $response->assertDontSee('Hapus Sesi?');
     }
 }

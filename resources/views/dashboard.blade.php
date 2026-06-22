@@ -147,7 +147,7 @@
 
         <div class="grid grid-cols-1 gap-4">
             @forelse($activities as $activity)
-                <div x-show="filter === 'semua' || filter === '{{ $activity->status }}'"
+                <div x-show="filter === 'semua' || (filter === 'active' && '{{ $activity->status }}' === 'active') || (filter === 'lunas' && '{{ $activity->status }}' === 'settled')"
                      class="group relative p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all flex justify-between items-center">
                     
                     <a href="{{ route('activities.show', $activity->id) }}" class="absolute inset-0 z-10"></a>

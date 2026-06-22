@@ -10,11 +10,12 @@ return new class extends Migration
      * Run the migrations.
      */
     // Di file migration baru:
-public function up() {
-    Schema::table('activities', function (Blueprint $table) {
-        $table->date('event_date')->nullable()->after('location');
-    });
-}
+    public function up()
+    {
+        Schema::table('activities', function (Blueprint $table) {
+            $table->date('event_date')->nullable()->after('location');
+        });
+    }
 
     /**
      * Reverse the migrations.

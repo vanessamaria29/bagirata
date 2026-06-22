@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema; // 1. TAMBAHKAN INI
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider; // 1. TAMBAHKAN INI
 
 class AppServiceProvider extends ServiceProvider
 {

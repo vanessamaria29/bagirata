@@ -8,10 +8,10 @@ class Item extends Model
 {
     // Mengizinkan field ini untuk diisi
     protected $fillable = [
-        'activity_id', 
-        'name', 
-        'price', 
-        'friend_name'
+        'activity_id',
+        'name',
+        'price',
+        'friend_name',
     ];
 
     // Relasi balik ke Activity

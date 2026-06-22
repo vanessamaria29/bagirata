@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Shared / Public read-only bill view
+Route::get('/shared/bill/{uuid}', [ActivityController::class, 'sharedShow'])->name('activities.shared');
 
 // 2. PROTECTED ROUTES (Harus Login & Verifikasi)
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -32,6 +35,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // CRUD Sesi Kegiatan (Create, Store, Edit, Update, Destroy)
     // Kita pakai 'except index' karena index-nya sudah dibuat manual di atas
     Route::resource('activities', ActivityController::class)->except(['index']);
+
+    // Settlement Tracker
+    Route::post('/members/{member}/toggle-payment', [ActivityController::class, 'togglePayment'])->name('members.toggle-payment');
 });
 
 // 3. PROFILE MANAGEMENT (Hanya Butuh Login)
@@ -49,6 +55,5 @@ Route::get('/test-ocr', function () {
 
 // Rute untuk memproses gambarnya (pakai ActivityController buatan temanmu)
 Route::post('/scan-struk', [ActivityController::class, 'scanStruk'])->name('ocr.scan');
-
 
 require __DIR__.'/auth.php';

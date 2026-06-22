@@ -8,8 +8,9 @@ class Member extends Model
 {
     // Mengizinkan field ini untuk diisi melalui mass assignment
     protected $fillable = [
-        'activity_id', 
-        'name'
+        'activity_id',
+        'name',
+        'payment_status',
     ];
 
     // Relasi balik ke Activity

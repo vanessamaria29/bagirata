@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('activity_id')->constrained()->onDelete('cascade');
             $table->string('name');
+            $table->string('payment_status')->default('unpaid');
             $table->timestamps();
         });
     }

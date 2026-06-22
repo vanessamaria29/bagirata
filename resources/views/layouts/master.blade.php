@@ -11,9 +11,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="currency-route" content="{{ route('profile.currency') }}">
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     <style>
+        [x-cloak] { display: none !important; }
         /* Sensory Glassmorphism Effect */
         .glass-nav {
             background: rgba(255, 255, 255, 0.8);
@@ -127,7 +130,7 @@
         @yield('content')
     </main>
 
-    @if(!Request::is('/'))
+    @if(!Request::is('/') && auth()->check())
     <div class="md:hidden fixed bottom-6 left-6 right-6 z-50">
         <div class="glass-nav border border-white/50 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-[2rem] px-4 h-20 flex items-center justify-around">
             <a href="{{ route('dashboard') }}" class="flex flex-col items-center gap-1 {{ Request::is('dashboard') ? 'text-blue-600' : 'text-gray-400' }}">

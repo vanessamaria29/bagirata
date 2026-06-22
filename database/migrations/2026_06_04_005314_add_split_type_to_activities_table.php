@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-public function up()
+    public function up()
     {
         Schema::table('activities', function (Blueprint $table) {
             $table->string('split_type')->default('proportional')->after('status');
