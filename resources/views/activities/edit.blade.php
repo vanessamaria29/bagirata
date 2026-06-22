@@ -43,6 +43,16 @@
                 </div>
             </div>
 
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic">Masukkan ke Trip (Opsional)</label>
+                <select name="trip_id" class="w-full px-8 py-5 bg-gray-50 border-2 border-transparent focus:border-blue-100 focus:bg-white focus:ring-4 focus:ring-blue-50 rounded-[1.5rem] transition-all font-black text-gray-900 outline-none cursor-pointer">
+                    <option value="">-- Tanpa Trip --</option>
+                    @foreach($trips as $t)
+                        <option value="{{ $t->id }}" {{ old('trip_id', $activity->trip_id) == $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                     <label class="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic">Pajak (PPN)</label>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TripController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,6 +18,7 @@ Route::get('/', function () {
 
 // Shared / Public read-only bill view
 Route::get('/shared/bill/{uuid}', [ActivityController::class, 'sharedShow'])->name('activities.shared');
+Route::get('/shared/trip/{uuid}', [TripController::class, 'sharedShow'])->name('trips.shared');
 
 // 2. PROTECTED ROUTES (Harus Login & Verifikasi)
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -38,6 +40,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Settlement Tracker
     Route::post('/members/{member}/toggle-payment', [ActivityController::class, 'togglePayment'])->name('members.toggle-payment');
+
+    // Trips Folder
+    Route::resource('trips', TripController::class);
+    Route::post('/trips/{trip}/toggle-member-payment', [TripController::class, 'toggleMemberPayment'])->name('trips.toggle-member-payment');
+
+    // API rates
+    Route::get('/api/exchange-rates', [ActivityController::class, 'getRates'])->name('api.rates');
 });
 
 // 3. PROFILE MANAGEMENT (Hanya Butuh Login)

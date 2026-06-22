@@ -7,7 +7,7 @@ use Illuminate\Support\Str;
 
 class Activity extends Model
 {
-    protected $fillable = ['uuid', 'title', 'location', 'event_date', 'status', 'total_amount', 'tax', 'service_charge', 'split_type'];
+    protected $fillable = ['uuid', 'title', 'location', 'event_date', 'status', 'total_amount', 'tax', 'service_charge', 'split_type', 'trip_id', 'original_currency', 'exchange_rate', 'original_amount'];
 
     protected static function boot()
     {
@@ -18,6 +18,11 @@ class Activity extends Model
                 $activity->uuid = (string) Str::uuid();
             }
         });
+    }
+
+    public function trip()
+    {
+        return $this->belongsTo(Trip::class);
     }
 
     public function members()

@@ -12,6 +12,26 @@
     tax: 0,
     serviceCharge: 0,
     splitType: 'proportional',
+    currencyCode: 'IDR',
+    exchangeRate: 1.0,
+    rates: { IDR: 1.0, USD: 16400, SGD: 12100, JPY: 104 },
+    formatRate(val) {
+        return parseFloat(val).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    updateExchangeRate() {
+        this.exchangeRate = this.rates[this.currencyCode] || 1.0;
+    },
+    init() {
+        fetch('/api/exchange-rates')
+            .then(res => res.json())
+            .then(data => {
+                if (data.rates) {
+                    this.rates = data.rates;
+                    this.updateExchangeRate();
+                }
+            })
+            .catch(err => console.log('Using default rates fallback'));
+    },
 
     addFriend() {
         if (this.newFriend.trim() !== '') {
@@ -129,6 +149,27 @@
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Tanggal</label>
                 <input type="date" name="event_date" required 
                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Masukkan ke Trip (Opsional)</label>
+                <select name="trip_id" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none cursor-pointer">
+                    <option value="">-- Tanpa Trip --</option>
+                    @foreach($trips as $t)
+                        <option value="{{ $t->id }}" {{ request('trip_id') == $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 italic">Mata Uang Pengeluaran</label>
+                <select name="currency" x-model="currencyCode" @change="updateExchangeRate()" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none cursor-pointer">
+                    <option value="IDR">Rupiah (IDR)</option>
+                    <option value="USD">US Dollar (USD)</option>
+                    <option value="SGD">Singapore Dollar (SGD)</option>
+                    <option value="JPY">Japanese Yen (JPY)</option>
+                </select>
+                <p x-show="currencyCode !== 'IDR'" class="text-[11px] text-blue-600 font-semibold mt-2 animate-pulse" x-cloak>
+                    💡 Otomatis dikonversi menggunakan kurs live API: <span class="font-black">1 <span x-text="currencyCode"></span> = Rp <span x-text="formatRate(exchangeRate)"></span></span>
+                </p>
             </div>
         </div>
 
@@ -290,7 +331,7 @@
                             <thead>
                                 <tr class="border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                     <th class="pb-3 w-2/5">Hasil Deteksi Menu</th>
-                                    <th class="pb-3 w-1/5" x-text="'Harga (' + $store.currency.symbol + ')'">Harga (Rp)</th>
+                                    <th class="pb-3 w-1/5" x-text="'Harga (' + currencyCode + ')'">Harga (Rp)</th>
                                     <th class="pb-3 w-1/3" x-show="splitType === 'proportional'">Alokasi Pemesan</th>
                                     <th class="pb-3 text-center w-12">Aksi</th>
                                 </tr>
@@ -378,8 +419,13 @@
                             <span class="font-bold text-gray-700" x-text="$store.currency.symbol + ' ' + $store.currency.format(parseInt(serviceCharge || 0))"></span>
                         </div>
                         <div class="border-t border-gray-200 pt-3 flex justify-between items-center bg-blue-600 -mx-6 -mb-6 px-6 py-5 rounded-b-3xl text-white">
-                            <span class="text-xs font-black uppercase tracking-widest opacity-80">Grand Total</span>
-                            <span class="text-2xl font-black italic" x-text="$store.currency.symbol + ' ' + $store.currency.format(getGrandTotal())">Rp 0</span>
+                            <div class="flex flex-col">
+                                <span class="text-xs font-black uppercase tracking-widest opacity-80">Grand Total</span>
+                                <span x-show="currencyCode !== 'IDR'" class="text-[10px] font-black uppercase tracking-wider text-blue-100 mt-0.5" x-cloak>
+                                    ≈ Rp <span x-text="Math.round(getGrandTotal() * exchangeRate).toLocaleString('id-ID')"></span>
+                                </span>
+                            </div>
+                            <span class="text-2xl font-black italic" x-text="currencyCode + ' ' + Math.round(getGrandTotal()).toLocaleString('id-ID')"></span>
                         </div>
                     </div>
 
@@ -396,11 +442,14 @@
                                         <span class="font-black text-xs text-gray-950 uppercase tracking-tight" x-text="member.name"></span>
                                     </div>
                                     <div class="text-right">
-                                        <span class="font-black text-base text-blue-600 italic" x-text="$store.currency.symbol + ' ' + $store.currency.format(Math.round(member.total))"></span>
+                                        <span class="font-black text-base text-blue-600 italic" x-text="currencyCode + ' ' + Math.round(member.total).toLocaleString('id-ID')"></span>
+                                        <div x-show="currencyCode !== 'IDR'" class="text-[10px] text-gray-500 font-black tracking-tight mt-0.5" x-cloak>
+                                            ≈ Rp <span x-text="Math.round(member.total * exchangeRate).toLocaleString('id-ID')"></span>
+                                        </div>
                                         <div class="text-[8px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-                                            Sub: <span x-text="$store.currency.format(Math.round(member.subtotal))"></span> | 
-                                            Pajak: <span x-text="$store.currency.format(Math.round(member.tax))"></span> | 
-                                            SC: <span x-text="$store.currency.format(Math.round(member.serviceCharge))"></span>
+                                            Sub: <span x-text="Math.round(member.subtotal).toLocaleString('id-ID')"></span> | 
+                                            Pajak: <span x-text="Math.round(member.tax).toLocaleString('id-ID')"></span> | 
+                                            SC: <span x-text="Math.round(member.serviceCharge).toLocaleString('id-ID')"></span>
                                         </div>
                                     </div>
                                 </div>

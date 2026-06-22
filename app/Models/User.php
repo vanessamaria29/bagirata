@@ -31,4 +31,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Activity::class);
     }
+
+    /**
+     * Relasi ke Trip (Satu User bisa punya banyak Trip Folder).
+     */
+    public function trips(): HasMany
+    {
+        return $this->hasMany(Trip::class);
+    }
 }

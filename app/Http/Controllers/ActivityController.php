@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Member;
+use App\Services\CurrencyService;
 use Google\Cloud\Vision\V1\ImageAnnotatorClient;
 use Illuminate\Http\Request;
 
@@ -38,7 +39,9 @@ class ActivityController extends Controller
      */
     public function create()
     {
-        return view('activities.create');
+        $trips = auth()->user()->trips()->where('status', 'active')->get();
+
+        return view('activities.create', compact('trips'));
     }
 
     /**
@@ -340,7 +343,19 @@ class ActivityController extends Controller
             'friends' => 'nullable|array',
             'tax' => 'nullable|numeric|min:0',
             'service_charge' => 'nullable|numeric|min:0',
+            'trip_id' => 'nullable|exists:trips,id',
+            'currency' => 'nullable|string|in:IDR,USD,SGD,JPY',
         ]);
+
+        $currency = $request->input('currency', 'IDR');
+        $service = new CurrencyService;
+        $rate = $service->getRateFromIdrTo($currency);
+
+        $taxForeign = (float) ($request->tax ?? 0);
+        $scForeign = (float) ($request->service_charge ?? 0);
+
+        $taxIdr = $taxForeign * $rate;
+        $scIdr = $scForeign * $rate;
 
         // 1. Buat Sesi Utamanya dulu
         $activity = auth()->user()->activities()->create([
@@ -350,8 +365,12 @@ class ActivityController extends Controller
             'status' => 'active',
             'split_type' => $request->split_type ?? 'proportional',
             'total_amount' => 0,
-            'tax' => $request->tax ?? 0,
-            'service_charge' => $request->service_charge ?? 0,
+            'tax' => $taxIdr,
+            'service_charge' => $scIdr,
+            'trip_id' => $request->trip_id,
+            'original_currency' => $currency,
+            'exchange_rate' => $rate,
+            'original_amount' => 0,
         ]);
 
         // 2. Simpan nama-nama teman yang ikut patungan ke database
@@ -366,22 +385,28 @@ class ActivityController extends Controller
         }
 
         // 3. Tangkap array items dan simpan namanya ke kolom friend_name
-        $itemsTotal = 0;
+        $itemsTotalForeign = 0;
+        $itemsTotalIdr = 0;
         if ($request->has('items')) {
             foreach ($request->items as $item) {
                 if (! empty($item['name']) && ! empty($item['price'])) {
+                    $priceForeign = (float) $item['price'];
+                    $priceIdr = $priceForeign * $rate;
+
                     $activity->items()->create([
                         'name' => strtoupper($item['name']),
-                        'price' => (int) $item['price'],
+                        'price' => $priceIdr,
                         'friend_name' => $item['friend'] ?? null,
                     ]);
-                    $itemsTotal += (int) $item['price'];
+                    $itemsTotalForeign += $priceForeign;
+                    $itemsTotalIdr += $priceIdr;
                 }
             }
         }
 
         $activity->update([
-            'total_amount' => $itemsTotal + (int) $request->tax + (int) $request->service_charge,
+            'total_amount' => $itemsTotalIdr + $taxIdr + $scIdr,
+            'original_amount' => $itemsTotalForeign + $taxForeign + $scForeign,
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Sesi Patungan Berhasil Disimpan!');
@@ -400,7 +425,9 @@ class ActivityController extends Controller
      */
     public function edit(Activity $activity)
     {
-        return view('activities.edit', compact('activity'));
+        $trips = auth()->user()->trips()->where('status', 'active')->get();
+
+        return view('activities.edit', compact('activity', 'trips'));
     }
 
     /**
@@ -414,14 +441,27 @@ class ActivityController extends Controller
             'event_date' => 'required|date',
             'tax' => 'nullable|numeric|min:0',
             'service_charge' => 'nullable|numeric|min:0',
+            'trip_id' => 'nullable|exists:trips,id',
         ]);
 
-        $activity->update($request->only(['title', 'location', 'event_date', 'tax', 'service_charge']));
+        $rate = $activity->exchange_rate ?: 1.0;
+        $taxIdr = (float) ($request->tax ?? 0) * $rate;
+        $scIdr = (float) ($request->service_charge ?? 0) * $rate;
+
+        $activity->update([
+            'title' => $request->title,
+            'location' => $request->location,
+            'event_date' => $request->event_date,
+            'tax' => $taxIdr,
+            'service_charge' => $scIdr,
+            'trip_id' => $request->trip_id,
+        ]);
 
         // Recalculate total_amount = sum of items + tax + service_charge
-        $itemsTotal = $activity->items()->sum('price');
+        $itemsTotalIdr = $activity->items()->sum('price');
         $activity->update([
-            'total_amount' => $itemsTotal + (int) $request->tax + (int) $request->service_charge,
+            'total_amount' => $itemsTotalIdr + $taxIdr + $scIdr,
+            'original_amount' => ($itemsTotalIdr / $rate) + ($request->tax ?? 0) + ($request->service_charge ?? 0),
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Sesi Berhasil Diperbarui!');
@@ -486,5 +526,22 @@ class ActivityController extends Controller
         $activity = Activity::where('uuid', $uuid)->with(['members', 'items'])->firstOrFail();
 
         return view('activities.shared', compact('activity'));
+    }
+
+    /**
+     * Get rates for AJAX
+     */
+    public function getRates()
+    {
+        $service = new CurrencyService;
+
+        return response()->json([
+            'rates' => [
+                'USD' => $service->getRateFromIdrTo('USD'),
+                'SGD' => $service->getRateFromIdrTo('SGD'),
+                'JPY' => $service->getRateFromIdrTo('JPY'),
+                'IDR' => 1.0,
+            ],
+        ]);
     }
 }

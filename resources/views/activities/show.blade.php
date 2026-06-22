@@ -76,7 +76,7 @@
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 translate-y-8"
                  x-transition:enter-end="opacity-100 translate-y-0"
-                 class="relative bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-gray-100 text-center">
+                 class="relative bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl border border-gray-100 text-center">
                 
                 <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,7 +107,7 @@
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 translate-y-8"
                  x-transition:enter-end="opacity-100 translate-y-0"
-                 class="relative bg-white rounded-[3.5rem] p-10 max-w-md w-full shadow-2xl border border-gray-100 text-center">
+                 class="relative bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl border border-gray-100 text-center">
                 
                 <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
                      :class="confirmTheme === 'orange' ? 'bg-orange-50' : 'bg-blue-50'">
@@ -144,7 +144,7 @@
         @php
             $subtotal = $activity->total_amount - $activity->tax - $activity->service_charge;
         @endphp
-        <div class="p-8 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+        <div class="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-4">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Rincian Biaya</p>
             <div class="space-y-3">
                 <div class="flex justify-between items-center text-sm">
@@ -170,15 +170,19 @@
             </div>
         </div>
 
-        <div class="p-8 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-center">
+        <div class="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-center">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Status Sesi</p>
-            <div class="flex items-center gap-2 mt-2" id="activity-status-container">
+            <div class="mt-2 flex items-center" id="activity-status-container">
                 @if($activity->status == 'active')
-                    <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
-                    <span class="font-black text-2xl italic uppercase tracking-tighter text-orange-500">BELUM LUNAS</span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-100/60 animate-pulse">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        BELUM LUNAS
+                    </span>
                 @else
-                    <span class="w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-200"></span>
-                    <span class="font-black text-2xl italic uppercase tracking-tighter text-green-500">LUNAS</span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100/60">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        LUNAS
+                    </span>
                 @endif
             </div>
 
@@ -203,7 +207,7 @@
         </h3>
 
         @forelse($activity->member_breakdown as $member)
-        <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden" id="member-card-{{ $member['id'] ?? 'unassigned' }}">
+        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden" id="member-card-{{ $member['id'] ?? 'unassigned' }}">
             <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-sm uppercase shadow-sm shadow-blue-100">
@@ -214,8 +218,8 @@
                         @if($member['id'] !== null && $member['name'] !== 'Unassigned')
                         <button onclick="togglePayment({{ $member['id'] }}, '{{ addslashes($member['name']) }}')" 
                                 id="payment-badge-{{ $member['id'] }}"
-                                class="w-fit mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer select-none active:scale-95
-                                {{ $member['payment_status'] === 'paid' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200' }}">
+                                class="w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95 border
+                                {{ $member['payment_status'] === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/60 hover:bg-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100/60 hover:bg-rose-100' }}">
                             {{ $member['payment_status'] === 'paid' ? 'LUNAS' : 'BELUM BAYAR' }}
                         </button>
                         @endif
@@ -330,10 +334,10 @@ function sendTogglePaymentAjax(memberId) {
             if (badge) {
                 if (data.payment_status === 'paid') {
                     badge.textContent = 'LUNAS';
-                    badge.className = 'w-fit mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer select-none active:scale-95 bg-green-100 text-green-700 hover:bg-green-200';
+                    badge.className = 'w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95 border bg-emerald-50 text-emerald-700 border-emerald-100/60 hover:bg-emerald-100';
                 } else {
                     badge.textContent = 'BELUM BAYAR';
-                    badge.className = 'w-fit mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer select-none active:scale-95 bg-red-100 text-red-700 hover:bg-red-200';
+                    badge.className = 'w-fit mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95 border bg-rose-50 text-rose-700 border-rose-100/60 hover:bg-rose-100';
                 }
             }
 
@@ -342,13 +346,17 @@ function sendTogglePaymentAjax(memberId) {
             if (statusContainer) {
                 if (data.activity_status === 'active') {
                     statusContainer.innerHTML = `
-                        <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
-                        <span class="font-black text-2xl italic uppercase tracking-tighter text-orange-500">BELUM LUNAS</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-100/60 animate-pulse">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            BELUM LUNAS
+                        </span>
                     `;
                 } else {
                     statusContainer.innerHTML = `
-                        <span class="w-3 h-3 rounded-full bg-green-500 shadow-sm shadow-green-200"></span>
-                        <span class="font-black text-2xl italic uppercase tracking-tighter text-green-500">LUNAS</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100/60">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            LUNAS
+                        </span>
                     `;
                 }
             }

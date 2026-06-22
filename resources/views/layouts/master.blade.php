@@ -12,21 +12,31 @@
     <meta name="currency-route" content="{{ route('profile.currency') }}">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap" rel="stylesheet">
+
     <!-- Load Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     <style>
         [x-cloak] { display: none !important; }
+        /* Premium Typography Fallback */
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
         /* Sensory Glassmorphism Effect */
         .glass-nav {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
         }
-        body { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
-<body x-data class="bg-gray-50 font-sans antialiased text-gray-950" data-currency="{{ auth()->user()->currency ?? 'IDR' }}"> 
+<body x-data class="bg-[#f8fafc] antialiased text-[#0f172a]" data-currency="{{ auth()->user()->currency ?? 'IDR' }}"> 
 
    @if(session('success'))
 <div x-data="{ show: true }" 
@@ -69,6 +79,12 @@
             
             <div class="flex items-center space-x-4">
                 @auth
+                <div class="hidden md:flex items-center space-x-6 mr-6 border-r border-gray-100 pr-6">
+                    <a href="{{ route('dashboard') }}" class="text-xs font-black uppercase tracking-widest {{ Request::is('dashboard') ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600' }} transition-colors">Home</a>
+                    <a href="{{ route('activities.index') }}" class="text-xs font-black uppercase tracking-widest {{ Request::is('activities*') ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600' }} transition-colors">Bills</a>
+                    <a href="{{ route('trips.index') }}" class="text-xs font-black uppercase tracking-widest {{ Request::is('trips*') ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600' }} transition-colors">Trips</a>
+                </div>
+
                 @php
                     $rawName = Auth::user()->name; 
                     $displayName = ucfirst($rawName);
@@ -145,6 +161,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
                 <span class="text-[10px] font-black uppercase tracking-widest">Bills</span>
+            </a>
+
+            <a href="{{ route('trips.index') }}" class="flex flex-col items-center gap-1 {{ Request::is('trips*') ? 'text-blue-600' : 'text-gray-400' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span class="text-[10px] font-black uppercase tracking-widest">Trips</span>
             </a>
 
             <a href="{{ route('friends.index') }}" class="flex flex-col items-center gap-1 {{ Request::is('friends*') ? 'text-blue-600' : 'text-gray-400' }}">
