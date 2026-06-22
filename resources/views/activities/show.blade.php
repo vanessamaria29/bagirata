@@ -3,7 +3,19 @@
 @section('title', 'Detail Sesi')
 
 @section('content')
-<div class="max-w-4xl mx-auto py-6 space-y-8" x-data="{ openDelete: false }">
+<div id="activity-detail-container" class="max-w-4xl mx-auto py-6 space-y-8" x-data="{ 
+    openDelete: false,
+    openConfirmPayment: false,
+    pendingMemberId: null,
+    pendingMemberName: '',
+    confirmTitle: '',
+    confirmMessage: '',
+    confirmTheme: 'blue',
+    executePayment() {
+        this.openConfirmPayment = false;
+        sendTogglePaymentAjax(this.pendingMemberId);
+    }
+}">
     
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -87,6 +99,47 @@
         </div>
     </template>
 
+    <template x-teleport="body">
+        <div x-show="openConfirmPayment" class="fixed inset-0 z-[150] flex items-center justify-center p-6" x-cloak>
+            <div @click="openConfirmPayment = false" x-show="openConfirmPayment" x-transition.opacity class="fixed inset-0 bg-gray-950/60 backdrop-blur-md"></div>
+
+            <div x-show="openConfirmPayment" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-8"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 class="relative bg-white rounded-[3.5rem] p-10 max-w-md w-full shadow-2xl border border-gray-100 text-center">
+                
+                <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+                     :class="confirmTheme === 'orange' ? 'bg-orange-50' : 'bg-blue-50'">
+                    
+                    <template x-if="confirmTheme === 'orange'">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </template>
+                    
+                    <template x-if="confirmTheme === 'blue'">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </template>
+                </div>
+
+                <h3 class="text-2xl font-black text-gray-900 italic tracking-tighter mb-2 uppercase" x-text="confirmTitle"></h3>
+                <p class="text-gray-500 font-medium mb-8 text-sm" x-text="confirmMessage"></p>
+
+                <div class="flex gap-4">
+                    <button @click="openConfirmPayment = false" class="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase tracking-widest text-[10px]">Batal</button>
+                    <button @click="executePayment()" 
+                            class="flex-1 py-4 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl"
+                            :class="confirmTheme === 'orange' ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'">
+                        Ya, Ubah!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         @php
             $subtotal = $activity->total_amount - $activity->tax - $activity->service_charge;
@@ -159,7 +212,7 @@
                     <div class="flex flex-col">
                         <span class="font-black text-lg text-gray-900 uppercase tracking-tight">{{ $member['name'] }}</span>
                         @if($member['id'] !== null && $member['name'] !== 'Unassigned')
-                        <button onclick="togglePayment({{ $member['id'] }})" 
+                        <button onclick="togglePayment({{ $member['id'] }}, '{{ addslashes($member['name']) }}')" 
                                 id="payment-badge-{{ $member['id'] }}"
                                 class="w-fit mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer select-none active:scale-95
                                 {{ $member['payment_status'] === 'paid' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200' }}">
@@ -230,7 +283,31 @@
 
 @push('scripts')
 <script>
-function togglePayment(memberId) {
+function togglePayment(memberId, memberName) {
+    const badge = document.getElementById(`payment-badge-${memberId}`);
+    if (!badge) return;
+
+    const isCurrentlyPaid = badge.textContent.trim().toUpperCase() === 'LUNAS';
+    
+    const container = document.getElementById('activity-detail-container');
+    if (container && window.Alpine) {
+        const alpineData = window.Alpine.$data(container);
+        alpineData.pendingMemberId = memberId;
+        alpineData.pendingMemberName = memberName;
+        if (isCurrentlyPaid) {
+            alpineData.confirmTitle = 'Batalkan Pembayaran?';
+            alpineData.confirmMessage = `Peringatan: Status ${memberName} saat ini sudah LUNAS. Apakah Anda yakin ingin membatalkannya kembali menjadi BELUM BAYAR?`;
+            alpineData.confirmTheme = 'orange';
+        } else {
+            alpineData.confirmTitle = 'Tandai Lunas?';
+            alpineData.confirmMessage = `Apakah Anda yakin ingin menandai ${memberName} sebagai LUNAS? Pastikan uang/bukti transfer sudah Anda terima.`;
+            alpineData.confirmTheme = 'blue';
+        }
+        alpineData.openConfirmPayment = true;
+    }
+}
+
+function sendTogglePaymentAjax(memberId) {
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (!token) return;
 
