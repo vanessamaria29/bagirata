@@ -120,14 +120,41 @@ class ActivityController extends Controller
             ];
 
             $pendingName = '';
-            $pendingTax = false;
-            $pendingService = false;
+            $pendingTaxKeyword = false;
+            $pendingServiceKeyword = false;
             $taxFound = 0;
             $serviceFound = 0;
 
             foreach ($lines as $line) {
                 $cleanLine = trim($line);
                 if (empty($cleanLine)) {
+                    continue;
+                }
+
+                // EKSTRAK HARGA TERPUSAT
+                $extractedPrice = 0;
+                $rawPriceMatch = '';
+                if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/iu', $cleanLine, $priceMatches)) {
+                    $rawPriceMatch = $priceMatches[1];
+                    $isDecimalMode = (preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPriceMatch)) && !preg_match('/(¥|JPY)/iu', $cleanLine);
+                    $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPriceMatch);
+                    if ($isDecimalMode) {
+                        $extractedPrice = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
+                    } else {
+                        $extractedPrice = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
+                    }
+                }
+
+                // PENANGKAP ALARM (Harus sebelum yang lain agar baris berisi angka murni ditangkap)
+                if ($pendingTaxKeyword && $extractedPrice > 0) {
+                    $taxFound = $extractedPrice;
+                    $pendingTaxKeyword = false;
+                    continue;
+                }
+
+                if ($pendingServiceKeyword && $extractedPrice > 0) {
+                    $serviceFound = $extractedPrice;
+                    $pendingServiceKeyword = false;
                     continue;
                 }
 
@@ -159,74 +186,22 @@ class ActivityController extends Controller
                     }
                 }
 
-                // --- 3. PARSING BARANG & HARGA (UNIVERSAL CURRENCY PARSER) ---
-
-                // Cek jika baris ini adalah nominal pajak/service dari baris sebelumnya (multi-line OCR)
-                if ($pendingTax) {
-                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
-                        $rawPrice = $priceMatches[1];
-                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
-                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
-                        if ($isDecimalMode) {
-                            $taxFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
-                        } else {
-                            $taxFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
-                        }
-                    }
-                    $pendingTax = false;
-
-                    continue;
-                }
-
-                if ($pendingService) {
-                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
-                        $rawPrice = $priceMatches[1];
-                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
-                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
-                        if ($isDecimalMode) {
-                            $serviceFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
-                        } else {
-                            $serviceFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
-                        }
-                    }
-                    $pendingService = false;
-
-                    continue;
-                }
-
                 // --- INTERCEPTOR PAJAK & SERVICE ---
-                if (preg_match('/(tax|ppn|pb1|消費税)/i', $cleanLine)) {
-                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
-                        $rawPrice = $priceMatches[1];
-                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
-                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
-                        if ($isDecimalMode) {
-                            $taxFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
-                        } else {
-                            $taxFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
-                        }
+                if (preg_match('/(tax|ppn|pb1|消費税)/iu', $cleanLine)) {
+                    if ($extractedPrice > 0) {
+                        $taxFound = $extractedPrice;
                     } else {
-                        // Jika nominal pajak tidak ditemukan di baris yang sama, tangkap di baris berikutnya
-                        $pendingTax = true;
+                        $pendingTaxKeyword = true;
                     }
-
                     continue;
                 }
 
-                if (preg_match('/(service|charge)/i', $cleanLine)) {
-                    if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
-                        $rawPrice = $priceMatches[1];
-                        $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
-                        $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
-                        if ($isDecimalMode) {
-                            $serviceFound = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
-                        } else {
-                            $serviceFound = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
-                        }
+                if (preg_match('/(service|charge)/iu', $cleanLine)) {
+                    if ($extractedPrice > 0) {
+                        $serviceFound = $extractedPrice;
                     } else {
-                        $pendingService = true;
+                        $pendingServiceKeyword = true;
                     }
-
                     continue;
                 }
 
@@ -252,23 +227,10 @@ class ActivityController extends Controller
                     continue;
                 }
 
-                // Ambil harga dari bagian kanan string terlebih dahulu
-                if (preg_match('/([IlO\d][IlO\d,.\s]{2,})\s*(?:JPY|SGD|USD|IDR|Rp|S\$|\$|¥)?\s*$/i', $cleanLine, $priceMatches)) {
-                    $rawPrice = $priceMatches[1];
-                    $isDecimalMode = preg_match('/(\$|S\$|USD|SGD)/i', $cleanLine) || preg_match('/\.\d{2}\s*$/', $rawPrice);
-
-                    // Bersihkan string harga
-                    $cleanPriceStr = str_ireplace(['l', 'O', 'I'], ['1', '0', '1'], $rawPrice);
-
-                    if ($isDecimalMode) {
-                        $cleanPrice = (float) preg_replace('/[^\d.]/', '', $cleanPriceStr);
-                    } else {
-                        $cleanPrice = (int) preg_replace('/[^\d]/', '', $cleanPriceStr);
-                    }
-
-                    if ($cleanPrice <= 0) {
-                        continue;
-                    } // Skip jika angkanya 0 atau error parsing
+                // --- 3. PARSING BARANG & HARGA ---
+                if ($extractedPrice > 0) {
+                    $rawPrice = $rawPriceMatch;
+                    $cleanPrice = $extractedPrice;
 
                     // Buat sisa string nama dan qty dengan menghapus teks harga dari baris
                     $pos = strrpos($cleanLine, $rawPrice);
