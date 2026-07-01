@@ -72,7 +72,7 @@
 
                     <div class="relative z-20 space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-black tracking-widest uppercase text-blue-600">📂 Trip Folder</span>
+                            <span class="text-xs font-black tracking-widest uppercase text-blue-600"> Trip Folder</span>
                             <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border
                                   {{ $trip->status === 'settled' ? 'bg-emerald-50 text-emerald-700 border-emerald-100/60' : 'bg-amber-50 text-amber-700 border-amber-100/60' }}">
                                 {{ $trip->status === 'settled' ? 'Selesai' : 'Aktif' }}

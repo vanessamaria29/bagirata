@@ -115,7 +115,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mx-auto"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" /></svg>
                 </span>
                 <p class="text-sm font-black text-gray-700 uppercase tracking-wide">Upload Struk Belanja</p>
-                <p class="text-[10px] text-gray-400 font-bold mt-1">Pilih / Ambil Foto Struk (Sistem Cerdas Bagirata OCR)</p>
+                <p class="text-[10px] text-gray-400 font-bold mt-1">Pilih / Ambil Foto Struk </p>
             </div>
 
             <div class="text-center py-4" x-show="!isOcrProcessed && !isUploading">
@@ -171,7 +171,7 @@
                                                 class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-black text-gray-900 uppercase focus:bg-gray-50 px-2 py-1 rounded-md outline-none">
                                         </td>
                                         <td class="py-3 pr-4">
-                                            <input type="number" x-model="item.price" 
+                                            <input type="number" step="any" x-model="item.price" 
                                                 class="w-full bg-transparent border-b border-transparent focus:border-blue-500 font-bold text-gray-950 italic focus:bg-gray-50 px-2 py-1 rounded-md outline-none text-left">
                                         </td>
                                         <td class="py-3 pr-2" x-show="splitType === 'proportional'">
@@ -217,7 +217,7 @@
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Pajak (PPN)</label>
                                 <div class="relative">
                                     <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400" x-text="$store.currency.symbol"></span>
-                                    <input type="number" x-model="tax" name="tax" min="0" placeholder="0"
+                                    <input type="number" step="any" x-model="tax" name="tax" min="0" placeholder="0"
                                         class="w-full pl-8 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
                                 </div>
                             </div>
@@ -225,7 +225,7 @@
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">Service Charge</label>
                                 <div class="relative">
                                     <span class="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400" x-text="$store.currency.symbol"></span>
-                                    <input type="number" x-model="serviceCharge" name="service_charge" min="0" placeholder="0"
+                                    <input type="number" step="any" x-model="serviceCharge" name="service_charge" min="0" placeholder="0"
                                         class="w-full pl-8 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-4 focus:ring-blue-100 font-bold text-gray-900 outline-none">
                                 </div>
                             </div>
@@ -307,7 +307,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('activityForm', () => ({
         tripsData: @json($trips),
         selectedTripId: '{{ request('trip_id', '') }}',
-        friends: [], 
+        friends: ['{{ auth()->user()->name }}'], 
         newFriend: '',
         isOcrProcessed: false,
         isUploading: false,
@@ -431,10 +431,10 @@ document.addEventListener('alpine:init', () => {
             this.ocrItems.splice(index, 1);
         },
         getSubtotal() {
-            return this.ocrItems.reduce((sum, item) => sum + parseInt(item.price || 0), 0);
+            return this.ocrItems.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
         },
         getGrandTotal() {
-            return this.getSubtotal() + parseInt(this.tax || 0) + parseInt(this.serviceCharge || 0);
+            return this.getSubtotal() + parseFloat(this.tax || 0) + parseFloat(this.serviceCharge || 0);
         },
         getLiveBreakdown() {
             if (this.friends.length === 0) return [];
@@ -455,8 +455,8 @@ document.addEventListener('alpine:init', () => {
                 let grandTotal = this.getGrandTotal();
                 let perPerson = grandTotal / totalMembers;
                 let sharedSubtotal = this.getSubtotal() / totalMembers;
-                let sharedTax = parseInt(this.tax || 0) / totalMembers;
-                let sharedSc = parseInt(this.serviceCharge || 0) / totalMembers;
+                let sharedTax = parseFloat(this.tax || 0) / totalMembers;
+                let sharedSc = parseFloat(this.serviceCharge || 0) / totalMembers;
 
                 return this.friends.map(friend => ({
                     name: friend,
@@ -488,8 +488,8 @@ document.addEventListener('alpine:init', () => {
             this.friends.forEach(friend => {
                 let b = breakdowns[friend];
                 let proportion = totalAssignedSubtotal > 0 ? (b.subtotal / totalAssignedSubtotal) : 0;
-                b.tax = proportion * parseInt(this.tax || 0);
-                b.serviceCharge = proportion * parseInt(this.serviceCharge || 0);
+                b.tax = proportion * parseFloat(this.tax || 0);
+                b.serviceCharge = proportion * parseFloat(this.serviceCharge || 0);
                 b.total = b.subtotal + b.tax + b.serviceCharge;
             });
 

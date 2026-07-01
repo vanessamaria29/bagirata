@@ -88,15 +88,45 @@ class TripController extends Controller
         return view('trips.show', compact('trip', 'activities', 'totalSpent', 'activeSessions', 'consolidated'));
     }
 
-    public function destroy(Trip $trip)
+public function destroy(Trip $trip)
     {
+        // 1. Otorisasi (Pastikan hanya pemilik trip yang bisa hapus)
         if ($trip->user_id !== auth()->id()) {
             abort(403);
         }
 
+        // Siapkan nama host untuk dikecualikan dari perhitungan
+        $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
+        $hostFullName = strtoupper(auth()->user()->name);
+
+        // 2. Kumpulkan semua data anggota dari seluruh aktivitas di dalam Trip ini
+        // Menggunakan flatMap untuk menggabungkan array dari banyak relasi sekaligus
+        $allMembers = $trip->activities->flatMap->members;
+
+        // 3. Filter anggota untuk menyingkirkan Host dari pengecekan
+        $regularMembers = $allMembers->filter(function ($member) use ($hostFirstName, $hostFullName) {
+            $memberName = strtoupper($member->name);
+            return $memberName !== $hostFirstName && $memberName !== $hostFullName;
+        });
+
+        $totalRegularMembers = $regularMembers->count();
+
+        // 4. Hitung jumlah tagihan anggota (selain host) yang statusnya sudah lunas
+        $paidMembersCount = $regularMembers->filter(function ($member) {
+            return strtolower($member->payment_status) === 'paid'; 
+        })->count();
+
+        // 5. EVALUASI STATUS PEMBAYARAN (Opsi 2)
+        // Jika tagihan yang lunas lebih dari 0 TAPI belum semuanya lunas
+        if ($paidMembersCount > 0 && $paidMembersCount < $totalRegularMembers) {
+            return redirect()->back()->with('error', "Trip tidak dapat dihapus karena transaksi di dalamnya sedang berjalan ({$paidMembersCount}/{$totalRegularMembers} tagihan sudah dilunasi).");
+        }
+
+        // Jika lolos dari kondisi di atas, berarti masuk Opsi 1 (0 lunas) atau Opsi 3 (Lunas Semua).
+        // Aman untuk dihapus!
         $trip->delete();
 
-        return redirect()->route('trips.index')->with('success', 'Trip Berhasil Dihapus!');
+        return redirect()->route('trips.index')->with('success', 'Trip dan seluruh sesinya berhasil dihapus!');
     }
 
     public function sharedShow($uuid)

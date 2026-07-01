@@ -136,6 +136,9 @@ class ActivityController extends Controller
                 'Disc', 'Diskon', 'Tanggal', 'Date', 'Waktu', 'Time', 'Jam', 'taxable', 'Payment', 'Pembayaran',
                 'BCA', 'Mandiri', 'BNI', 'BRI', 'Gopay', 'OVO', 'Dana', 'LinkAja', 'QRIS',
                 '小計', '合計', 'お支払い', 'カード', 'お釣り', 'レシート', '伝票番号',
+                'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 
+                'Business', 'Hours', 'NPWP', 'Op', 'Till', 'Shop', 'Served', 'Guests', 'Hall', 
+                'AM', 'PM', 'Plaza', 'Lestari', 'Rate', 'Amt', 'Jakarta', 'Indonesia'
             ];
 
             $pendingName = '';
@@ -143,11 +146,22 @@ class ActivityController extends Controller
             $pendingServiceKeyword = false;
             $taxFound = 0;
             $serviceFound = 0;
+            $runningSubtotal = 0;
 
+            
             foreach ($lines as $line) {
                 $cleanLine = trim($line);
                 if (empty($cleanLine)) {
                     continue;
+                }
+                
+                // Blokir mutlak baris-baris ringkasan atau teks nggak penting
+                // Biar angkanya nggak diculik sama alarm Service/Pajak!
+                if (preg_match('/(sub\s*total|total\s*rp|cash|change|kembali|paul\s*bakery|jakarta|business|hours|sunday|saturday|taxable)/iu', $cleanLine)) {
+                    $pendingTaxKeyword = false;     // Matikan alarm pajak kalau lagi nyala
+                    $pendingServiceKeyword = false; // Matikan alarm service kalau lagi nyala
+                    $pendingName = '';              // Hapus nama yang nyangkut (biar Paul Bakery nggak jadi menu)
+                    continue;                       // Langsung skip baris ini tanpa diekstrak!
                 }
 
                 // EKSTRAK HARGA TERPUSAT
@@ -164,15 +178,21 @@ class ActivityController extends Controller
                     }
                 }
 
-                // PENANGKAP ALARM (Harus sebelum yang lain agar baris berisi angka murni ditangkap)
+                // PENANGKAP ALARM
                 if ($pendingTaxKeyword && $extractedPrice > 0) {
-                    $taxFound = $extractedPrice;
+                    if ($runningSubtotal > 0 && $extractedPrice == $runningSubtotal) {
+                        continue; // Ini Subtotal nyasar! Abaikan dan biarkan alarm tetap nyala
+                    }
+                    if ($taxFound == 0) $taxFound = $extractedPrice;
                     $pendingTaxKeyword = false;
                     continue;
                 }
 
                 if ($pendingServiceKeyword && $extractedPrice > 0) {
-                    $serviceFound = $extractedPrice;
+                    if ($runningSubtotal > 0 && $extractedPrice == $runningSubtotal) {
+                        continue; // Ini Subtotal nyasar! Abaikan dan biarkan alarm tetap nyala
+                    }
+                    if ($serviceFound == 0) $serviceFound = $extractedPrice;
                     $pendingServiceKeyword = false;
                     continue;
                 }
@@ -205,17 +225,27 @@ class ActivityController extends Controller
                     }
                 }
 
-                // --- INTERCEPTOR PAJAK & SERVICE ---
-                if (preg_match('/(tax|ppn|pb1|消費税)/iu', $cleanLine)) {
-                    if ($extractedPrice > 0) {
-                        $taxFound = $extractedPrice;
+                // --- INTERCEPTOR PAJAK & SERVICE (Versi Kalkulator) ---
+                if (preg_match('/(tax|t\s*a\s*x|ppn|pb1|消費税)/iu', $cleanLine) && !preg_match('/(sblm|before|taxable)/iu', $cleanLine)) {
+                    if ($extractedPrice > 0 && !($runningSubtotal > 0 && $extractedPrice == $runningSubtotal)) {
+                        if ($taxFound == 0) $taxFound = $extractedPrice;
                     } else {
                         $pendingTaxKeyword = true;
                     }
                     continue;
                 }
 
-                if (preg_match('/(service|charge)/iu', $cleanLine)) {
+                if (preg_match('/\b(service|serv|sc|charge)\b/iu', $cleanLine)) {
+                    if ($extractedPrice > 0 && !($runningSubtotal > 0 && $extractedPrice == $runningSubtotal)) {
+                        if ($serviceFound == 0) $serviceFound = $extractedPrice;
+                    } else {
+                        $pendingServiceKeyword = true;
+                    }
+                    continue;
+                }
+
+                // 2. Pengecekan Service Charge (Pakai \b agar tidak menangkap kata yang kebetulan mengandung "sc")
+                if (preg_match('/\b(service|serv|sc|charge)\b/iu', $cleanLine)) {
                     if ($extractedPrice > 0) {
                         $serviceFound = $extractedPrice;
                     } else {
@@ -258,13 +288,7 @@ class ActivityController extends Controller
                     } else {
                         $remainingText = trim(str_replace($rawPrice, '', $cleanLine));
                     }
-
-                    // MULTI-LINE FIX: Jika remainingText kosong (atau hanya berisi simbol mata uang), kemungkinan besar nama item ada di baris sebelumnya (OCR split)
-                    $cleanRemaining = trim(preg_replace('/(Rp|IDR|USD|SGD|JPY|S\$|\$|¥)/i', '', $remainingText));
-                    if (empty($cleanRemaining) && ! empty($pendingName)) {
-                        $remainingText = $pendingName;
-                    }
-
+                    // --- REVISI MULTI-LINE FIX ---
                     // Ekstrak Qty dari sisi paling kiri sisa teks
                     $qty = 1;
                     if (preg_match('/^(\d+)\s*[xX]?\s*/', $remainingText, $qtyMatches)) {
@@ -277,6 +301,13 @@ class ActivityController extends Controller
                     $itemName = preg_replace('/(Rp|IDR|USD|SGD|JPY|S\$|\$|¥)/i', '', $remainingText);
                     $itemName = trim(preg_replace('/[^\p{L}0-9\s.\-]/u', '', $itemName));
 
+                    // JURUS PAMUNGKAS: Jika setelah dibersihkan ternyata $itemName TIDAK MENGANDUNG HURUF
+                    // (contoh: sisa harga satuan "30.000" atau kosong), maka tarik nama dari baris sebelumnya!
+                    if (!preg_match('/[\p{L}]/u', $itemName) && !empty($pendingName)) {
+                        $itemName = $pendingName;
+                    }
+                    
+                    // Jika akhirnya nama menu mengandung huruf, simpan ke array!
                     if (preg_match('/[\p{L}]/u', $itemName)) {
                         $itemsFound[] = [
                             'qty' => $qty,
@@ -284,13 +315,20 @@ class ActivityController extends Controller
                             'price' => $cleanPrice,
                             'friend' => '',
                         ];
+                        $runningSubtotal += $cleanPrice; // <-- TAMBAHKAN BARIS INI
                         $pendingName = ''; // Reset setelah berhasil memasangkan harga dengan nama
                     }
-                } else {
+                
+                    } else {
                     // Jika baris ini tidak ada harganya, simpan sebagai calon nama item untuk baris berikutnya
-                    // Pastikan mengandung huruf dan tidak terlalu panjang
                     if (preg_match('/[\p{L}]/u', $cleanLine) && mb_strlen($cleanLine) < 50) {
-                        $pendingName = $cleanLine;
+                        
+                        // JURUS BARU: Jangan simpan kalau barisnya CUMA berisi tulisan "RP", "IDR", dsb.
+                        $isJustCurrency = preg_match('/^(Rp|IDR|USD|SGD|JPY|S\$|\$|¥)\.?$/iu', trim($cleanLine));
+                        
+                        if (!$isJustCurrency) {
+                            $pendingName = $cleanLine;
+                        }
                     }
                 }
             }
@@ -376,7 +414,8 @@ class ActivityController extends Controller
         if ($request->has('items')) {
             foreach ($request->items as $item) {
                 if (! empty($item['name']) && ! empty($item['price'])) {
-                    $priceForeign = (float) $item['price'];
+                    $priceRaw = str_replace(',', '.', $item['price']); 
+                    $priceForeign = (float) $priceRaw;
                     $priceIdr = $rate > 0 ? $priceForeign / $rate : $priceForeign;
 
                     $activity->items()->create([
@@ -453,33 +492,38 @@ class ActivityController extends Controller
         return redirect()->route('dashboard')->with('success', 'Sesi Berhasil Diperbarui!');
     }
 
-    /**
-     * Proses Hapus Sesi (Destroy)
+   /**
+     * Proses Hapus Sesi Individu (Destroy)
      */
     public function destroy(Activity $activity)
     {
-        // CEK STATUS PEMBAYARAN ANGGOTA (Kecualikan Host)
-        $hasPaidMembers = false;
+        // Siapkan nama host untuk dikecualikan
         $hostFirstName = strtoupper(explode(' ', auth()->user()->name)[0]);
         $hostFullName = strtoupper(auth()->user()->name);
 
-        foreach ($activity->members as $member) {
+        // 1. Filter anggota untuk menyingkirkan Host dari pengecekan
+        $regularMembers = $activity->members->filter(function ($member) use ($hostFirstName, $hostFullName) {
             $memberName = strtoupper($member->name);
-            if ($member->payment_status === 'paid' && $memberName !== $hostFirstName && $memberName !== $hostFullName) {
-                $hasPaidMembers = true;
-                break;
-            }
+            return $memberName !== $hostFirstName && $memberName !== $hostFullName;
+        });
+
+        $totalRegularMembers = $regularMembers->count();
+
+        // 2. Hitung jumlah anggota regular yang sudah lunas di sesi ini
+        $paidMembersCount = $regularMembers->filter(function ($member) {
+            return strtolower($member->payment_status) === 'paid'; 
+        })->count();
+
+        // 3. EVALUASI STATUS PEMBAYARAN (Opsi 2)
+        // Jika yang lunas lebih dari 0 TAPI belum semuanya lunas (masih menggantung)
+        if ($paidMembersCount > 0 && $paidMembersCount < $totalRegularMembers) {
+            return redirect()->back()->with('error', "Sesi tidak dapat dihapus karena transaksi sedang berjalan ({$paidMembersCount}/{$totalRegularMembers} anggota sudah membayar).");
         }
 
-        // GAGALKAN JIKA ADA YANG SUDAH BAYAR
-        if ($hasPaidMembers) {
-            return redirect()->back()->with('error', 'Sesi tidak dapat dihapus karena sudah ada anggota yang melakukan pembayaran!');
-        }
-
-        // LANJUTKAN HAPUS JIKA AMAN
+        // Jika lolos (Opsi 1: Belum ada yang bayar, atau Opsi 3: Lunas Semua)
         $activity->delete();
 
-        return redirect()->route('dashboard')->with('success', 'Sesi Berhasil Dihapus!');
+        return redirect()->route('dashboard')->with('success', 'Sesi patungan berhasil dihapus!');
     }
 
     /**

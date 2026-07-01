@@ -101,7 +101,7 @@
                 </div>
 
                 <h3 class="text-2xl font-black text-gray-900 italic tracking-tighter mb-2 uppercase">Hapus Sesi?</h3>
-                <p class="text-gray-500 font-medium mb-8 text-sm">Semua data tagihan bakal hilang permanen, Van.</p>
+                <p class="text-gray-500 font-medium mb-8 text-sm">Semua data tagihan bakal hilang permanen.</p>
 
                 <div class="flex gap-4">
                     <button @click="openDelete = false" class="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase tracking-widest text-[10px]">Batal</button>
@@ -273,7 +273,7 @@
             <div class="px-6 py-4">
                 <p class="text-xs text-gray-400 italic font-medium">
                     @if($activity->split_type == 'equal')
-                        🤝 Semua pesanan digabung (Sistem Bagi Rata)
+                        Semua pesanan digabung (Sistem Bagi Rata)
                     @else
                         Tidak ada pesanan khusus
                     @endif

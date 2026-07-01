@@ -124,7 +124,7 @@
             <div class="px-6 py-4">
                 <p class="text-xs text-gray-400 italic font-medium">
                     @if($activity->split_type == 'equal')
-                        🤝 Semua pesanan digabung (Sistem Bagi Rata)
+                        Semua pesanan digabung (Sistem Bagi Rata)
                     @else
                         Tidak ada pesanan khusus
                     @endif

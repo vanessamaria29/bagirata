@@ -14,7 +14,7 @@
             </a>
             <div>
                 <h2 class="text-3xl font-black text-gray-950 tracking-tighter italic leading-none">{{ $trip->name }}</h2>
-                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">📂 Trip Folder (Shared)</p>
+                <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1"> Trip Folder (Shared)</p>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
     <!-- Consolidated Settlement Bento Grid -->
     <div class="space-y-6">
         <h3 class="text-2xl font-black text-gray-950 tracking-tighter italic uppercase flex items-center gap-3">
-            ⚖️ Ringkasan Konsolidasi Final
+            Ringkasan Tagihan
         </h3>
         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest -mt-4">Total Tagihan Bersih per Anggota</p>
         
@@ -93,9 +93,6 @@
             </div>
         @else
             <div class="py-12 bg-white rounded-[2rem] border border-gray-100 text-center shadow-sm">
-                <div class="w-16 h-16 bg-gray-50 rounded-2xl mx-auto flex items-center justify-center mb-4">
-                    <span class="text-2xl">💸</span>
-                </div>
                 <p class="text-gray-400 font-black italic uppercase tracking-widest text-xs">Belum ada tagihan konsolidasi.</p>
             </div>
         @endif
@@ -104,7 +101,7 @@
     <!-- Sesi Pengeluaran Linier List -->
     <div class="space-y-6">
         <h3 class="text-2xl font-black text-gray-950 tracking-tighter italic uppercase flex items-center gap-3">
-            🧾 Daftar Sesi Pengeluaran
+            Daftar Sesi Pengeluaran
         </h3>
 
         <div class="grid grid-cols-1 gap-4">
